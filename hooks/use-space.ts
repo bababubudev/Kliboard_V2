@@ -39,11 +39,10 @@ export function useSpace(name: string, password?: string) {
   return useQuery({
     queryKey: ["space", name, password],
     queryFn: () => fetchSpace(name, password),
-    refetchInterval: POLLING_INTERVAL_MS,
-    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: false,
     retry: (failureCount, error) => {
       const err = error as Error & { status?: number };
-      if (err.status === 401 || err.status === 404) return false;
+      if (err.status === 401 || err.status === 404 || err.status === 429) return false;
       return failureCount < 3;
     },
   });

@@ -5,23 +5,36 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import { DURATION_OPTIONS } from "@/lib/constants";
 
 interface DurationPickerProps {
   value: number;
   onChange: (value: number) => void;
+  compact?: boolean;
 }
 
-export function DurationPicker({ value, onChange }: DurationPickerProps) {
+export function DurationPicker({
+  value,
+  onChange,
+  compact,
+}: DurationPickerProps) {
+  const selectedLabel =
+    DURATION_OPTIONS.find((o) => o.value === value)?.label ?? "Expiration";
+
   return (
     <Select
       value={String(value)}
       onValueChange={(v) => onChange(Number(v))}
     >
-      <SelectTrigger className="w-[180px]">
-        <SelectValue placeholder="Expiration" />
+      <SelectTrigger
+        className={
+          compact
+            ? "h-8 w-[130px] gap-1 rounded-md border-border bg-secondary px-3 text-sm"
+            : "w-[180px]"
+        }
+      >
+        <span>{selectedLabel}</span>
       </SelectTrigger>
       <SelectContent>
         {DURATION_OPTIONS.map((option) => (

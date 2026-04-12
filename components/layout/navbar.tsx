@@ -28,27 +28,27 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full bg-background">
-      <div className="mx-auto flex h-12 max-w-5xl items-center justify-between px-4">
+      <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
         {spaceName ? (
-          <div className="flex items-center gap-1.5 font-mono text-xs text-muted-foreground">
-            <Link href="/" className="text-primary hover:underline">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Link href="/" className="text-base font-bold text-primary hover:underline">
               kliboard
             </Link>
             <span>&gt;</span>
             <span>Space</span>
             <span>&gt;</span>
-            <span className="text-foreground">{decodeURIComponent(spaceName)}</span>
+            <span className="font-medium text-foreground">{decodeURIComponent(spaceName)}</span>
           </div>
         ) : (
-          <Link href="/" className="font-mono text-sm font-bold text-primary">
+          <Link href="/" className="text-base font-bold text-primary">
             kliboard
           </Link>
         )}
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-6">
           {!loading && user && (
             <Link
               href="/dashboard"
-              className="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               spaces
             </Link>
@@ -59,14 +59,14 @@ export function Navbar() {
               {user ? (
                 <button
                   onClick={handleLogout}
-                  className="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
                 >
                   logout
                 </button>
               ) : (
                 <Link
                   href="/login"
-                  className="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
                 >
                   login
                 </Link>

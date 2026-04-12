@@ -1,21 +1,50 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
-import { useSpace, useUpdateSpace } from "@/hooks/use-space";
+
+function formatCountdown(expiresAt: string): string {
+  const remaining = new Date(expiresAt).getTime() - Date.now();
+  if (remaining <= 0) return "expired";
+  const totalSeconds = Math.floor(remaining / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (days > 0) {
+    return `${days}d ${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m`;
+  }
+  return `${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
+}
+
+function useCountdown(expiresAt?: string) {
+  const [text, setText] = useState(() =>
+    expiresAt ? formatCountdown(expiresAt) : ""
+  );
+  useEffect(() => {
+    if (!expiresAt) return;
+    setText(formatCountdown(expiresAt));
+    const id = setInterval(() => setText(formatCountdown(expiresAt)), 1000);
+    return () => clearInterval(id);
+  }, [expiresAt]);
+  return text;
+}
+import { useSpace, useCreateSpace, useUpdateSpace } from "@/hooks/use-space";
+import { useBatchFileUpload } from "@/hooks/use-file-upload";
 import { useAuth } from "@/hooks/use-auth";
 import { SpacePasswordDialog } from "@/components/space/space-password-dialog";
+import { SetPasswordDialog } from "@/components/space/set-password-dialog";
 import { FileUpload } from "@/components/space/file-upload";
 import { FileList } from "@/components/space/file-list";
+import type { PendingFile } from "@/components/space/file-list";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DurationPicker } from "@/components/space/duration-picker";
-import { AlertCircle, Lock, Shield } from "lucide-react";
+import { Globe, Lock, RefreshCw, ArrowDownUp, Copy, EllipsisVertical } from "lucide-react";
 
 interface FileRecord {
   id: string;
@@ -29,16 +58,29 @@ interface FileRecord {
 export default function SpacePage() {
   const { name } = useParams<{ name: string }>();
   const [accessPassword, setAccessPassword] = useState<string | undefined>();
-  const [passwordError, setPasswordError] = useState("");
   const { user } = useAuth();
-  const { data: space, isLoading, error } = useSpace(name, accessPassword);
+  const {
+    data: space,
+    isLoading,
+    error,
+    refetch,
+  } = useSpace(name, accessPassword);
 
   const [content, setContent] = useState("");
   const [duration, setDuration] = useState(5);
-  const [spacePassword, setSpacePassword] = useState("");
+  const [isPrivate, setIsPrivate] = useState(false);
   const [prevSpaceId, setPrevSpaceId] = useState<string | null>(null);
+  const [syncedContent, setSyncedContent] = useState("");
+  const [syncedDuration, setSyncedDuration] = useState(5);
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const countdown = useCountdown(space?.expires_at);
 
+  const queryClient = useQueryClient();
+  const createSpace = useCreateSpace();
   const updateSpace = useUpdateSpace(name);
+  const batchUpload = useBatchFileUpload();
 
   const { data: files } = useQuery({
     queryKey: ["files", name],
@@ -57,21 +99,73 @@ export default function SpacePage() {
     setPrevSpaceId(space.id);
     setContent(space.content);
     setDuration(space.duration);
+    setIsPrivate(space.is_private);
+    setSyncedContent(space.content);
+    setSyncedDuration(space.duration);
   }
 
-  const hasFiles = Boolean(files?.length);
+  const isPasswordProtected =
+    error &&
+    (error as Error & { passwordProtected?: boolean }).passwordProtected;
+  const is404 = error && (error as Error & { status?: number }).status === 404;
+  const isNewSpace = is404 && !isPasswordProtected;
+
+  const hasFiles = Boolean(files?.length) || Boolean(pendingFiles.length);
   const hasContent = Boolean(content.trim());
   const canSave = hasContent || hasFiles;
-  const hasChanges = Boolean(
-    space && (content !== space.content || duration !== space.duration || spacePassword)
+  const hasChanges = isNewSpace
+    ? canSave
+    : Boolean(
+        space &&
+          (content !== space.content ||
+            duration !== space.duration ||
+            isPrivate !== space.is_private ||
+            pendingFiles.length > 0)
+      );
+  const isSaving =
+    createSpace.isPending || updateSpace.isPending || batchUpload.isPending;
+
+  const hasRemoteChanges = Boolean(
+    space &&
+      prevSpaceId === space.id &&
+      (space.content !== syncedContent || space.duration !== syncedDuration)
   );
 
-  const isPasswordProtected =
-    error && (error as Error & { passwordProtected?: boolean }).passwordProtected;
+  const handleFilesSelected = useCallback((newFiles: File[]) => {
+    const mapped: PendingFile[] = newFiles.map((file) => ({
+      id: crypto.randomUUID(),
+      file,
+      previewUrl: file.type.startsWith("image/")
+        ? URL.createObjectURL(file)
+        : "",
+    }));
+    setPendingFiles((prev) => [...prev, ...mapped]);
+  }, []);
+
+  function handleRemovePending(id: string) {
+    setPendingFiles((prev) => {
+      const removed = prev.find((p) => p.id === id);
+      if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl);
+      return prev.filter((p) => p.id !== id);
+    });
+  }
 
   function handlePasswordSubmit(pw: string) {
-    setPasswordError("");
     setAccessPassword(pw);
+  }
+
+  async function handleRefresh() {
+    await refetch();
+    toast.success("Refreshed");
+  }
+
+  function handleSync() {
+    if (space) {
+      setContent(space.content);
+      setDuration(space.duration);
+      setSyncedContent(space.content);
+      setSyncedDuration(space.duration);
+    }
   }
 
   async function handleCopy() {
@@ -84,19 +178,69 @@ export default function SpacePage() {
     }
   }
 
-  async function handleSave() {
+  function handleSaveClick() {
     if (!canSave || !hasChanges) return;
-    try {
-      const updates: { content?: string; duration?: number; password?: string } = {};
-      if (content !== space!.content) updates.content = content;
-      if (duration !== space!.duration) updates.duration = duration;
-      if (spacePassword) updates.password = spacePassword;
+    if (isPrivate && !space?.is_private) {
+      setShowPasswordDialog(true);
+      return;
+    }
+    executeSave();
+  }
 
-      await updateSpace.mutateAsync(updates);
-      setSpacePassword("");
-      toast.success("Space updated");
+  async function handlePasswordSet(password: string) {
+    setShowPasswordDialog(false);
+    await executeSave(password);
+  }
+
+  async function executeSave(password?: string) {
+    try {
+      let savedSpace = space;
+
+      if (isNewSpace) {
+        savedSpace = await createSpace.mutateAsync({
+          name,
+          content,
+          duration,
+          password: password || undefined,
+        });
+        queryClient.invalidateQueries({ queryKey: ["space", name] });
+      } else {
+        const updates: {
+          content?: string;
+          duration?: number;
+          password?: string;
+        } = {};
+        if (content !== space!.content) updates.content = content;
+        if (duration !== space!.duration) updates.duration = duration;
+        if (password) updates.password = password;
+        savedSpace = await updateSpace.mutateAsync(updates);
+      }
+
+      if (pendingFiles.length > 0 && savedSpace) {
+        const results = await batchUpload.mutateAsync({
+          files: pendingFiles.map((p) => p.file),
+          spaceName: savedSpace.name,
+          spaceId: savedSpace.id,
+        });
+
+        const failed = results.filter((r) => !r.success);
+        if (failed.length) {
+          for (const f of failed) {
+            toast.error(`${f.filename}: ${f.error}`);
+          }
+        }
+
+        pendingFiles.forEach((p) => {
+          if (p.previewUrl) URL.revokeObjectURL(p.previewUrl);
+        });
+        setPendingFiles([]);
+      }
+
+      setSyncedContent(content);
+      setSyncedDuration(duration);
+      toast.success("Space saved");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Update failed";
+      const msg = err instanceof Error ? err.message : "Save failed";
       toast.error(msg);
     }
   }
@@ -107,7 +251,7 @@ export default function SpacePage() {
         <SpacePasswordDialog
           open={true}
           onSubmit={handlePasswordSubmit}
-          error={accessPassword ? "Invalid password" : passwordError}
+          error={accessPassword ? "Invalid password" : ""}
           loading={isLoading}
         />
       </div>
@@ -123,110 +267,183 @@ export default function SpacePage() {
     );
   }
 
-  if (error || !space) {
+  if (error && !isNewSpace) {
     return (
       <div className="mx-auto max-w-5xl px-4 py-16 text-center">
-        <AlertCircle className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
-        <p className="font-mono text-sm">Space not found</p>
+        <p className="text-sm text-muted-foreground">Something went wrong</p>
       </div>
     );
   }
 
-  const isOwner = Boolean(user && space.owner_id === user.id);
-  const totalSize = files?.reduce((sum, f) => sum + f.size_bytes, 0) ?? 0;
+  const isOwner = Boolean(user && space?.owner_id === user.id);
+  const totalSize =
+    (files?.reduce((sum, f) => sum + f.size_bytes, 0) ?? 0) +
+    pendingFiles.reduce((sum, p) => sum + p.file.size, 0);
   const totalSizeStr =
     totalSize < 1024
       ? `${totalSize} B`
       : totalSize < 1024 * 1024
         ? `${(totalSize / 1024).toFixed(1)} KB`
         : `${(totalSize / (1024 * 1024)).toFixed(1)} MB`;
+  const itemCount = (files?.length ?? 0) + pendingFiles.length;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
-      <div className="mb-6 flex items-center justify-end gap-3">
-        <span className="font-mono text-xs text-muted-foreground">
-          {formatDistanceToNow(new Date(space.expires_at), { addSuffix: true })}
-        </span>
-        {space.is_private && (
-          <span className="flex items-center gap-1 rounded bg-primary px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-primary-foreground">
-            <Shield className="h-2.5 w-2.5" />
-            secure
-          </span>
-        )}
-      </div>
-
-      <div className="mb-6">
-        <div className="mb-2 flex items-center justify-between">
-          <p className="font-mono text-sm">Add Note</p>
-          {content && (
-            <button
-              onClick={handleCopy}
-              className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-            >
-              copy
-            </button>
-          )}
+      <div className="mb-8">
+        <div className="mb-1.5 flex items-end justify-between">
+          <p className="text-base font-medium leading-none">Add Note</p>
+          <div className="flex items-end gap-3">
+            <div className="flex items-center self-end">
+              <div
+                className={`flex items-center gap-2 overflow-hidden transition-all duration-200 ${
+                  actionsOpen ? "max-w-[300px] opacity-100" : "max-w-0 opacity-0"
+                }`}
+              >
+                {space && !hasRemoteChanges && (
+                  <button
+                    onClick={() => { handleRefresh(); setActionsOpen(false); }}
+                    className="flex shrink-0 items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    refresh
+                  </button>
+                )}
+                {hasRemoteChanges && (
+                  <button
+                    onClick={() => { handleSync(); setActionsOpen(false); }}
+                    className="flex shrink-0 items-center gap-1.5 text-xs uppercase tracking-wider text-primary"
+                  >
+                    <ArrowDownUp className="h-3.5 w-3.5" />
+                    sync
+                  </button>
+                )}
+                {content && (
+                  <button
+                    onClick={() => { handleCopy(); setActionsOpen(false); }}
+                    className="flex shrink-0 items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    copy
+                  </button>
+                )}
+                <span className="h-4 w-px shrink-0 bg-border" />
+              </div>
+              <button
+                onClick={() => setActionsOpen((v) => !v)}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                <EllipsisVertical className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex w-[130px] flex-col items-stretch gap-0.5">
+              <span className="text-center font-mono text-xs tabular-nums text-muted-foreground">
+                {space ? countdown : "unsaved"}
+              </span>
+              <DurationPicker
+                value={duration}
+                onChange={setDuration}
+                compact
+              />
+            </div>
+            <div className="flex flex-col items-stretch gap-0.5">
+              <span className="text-center text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                {isPrivate || space?.is_private ? "secure" : "public"}
+              </span>
+              <div className={`flex h-8 items-center rounded-md border p-0.5 transition-colors ${
+                isPrivate
+                  ? "border-primary/50 bg-primary/15"
+                  : "border-border bg-secondary"
+              }`}>
+                <button
+                  type="button"
+                  onClick={() => setIsPrivate(false)}
+                  className={`flex h-7 w-8 items-center justify-center rounded-sm transition-all ${
+                    !isPrivate
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Globe className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPrivate(true)}
+                  className={`flex h-7 w-8 items-center justify-center rounded-sm transition-all ${
+                    isPrivate
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Lock className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
         <Textarea
-          className="min-h-[160px] resize-y bg-card font-mono text-sm"
+          className="min-h-[180px] resize-y border-border bg-card font-mono text-sm"
           placeholder="Paste snippets, type notes, or drop files here..."
           value={content}
           onChange={(e) => setContent(e.target.value)}
         />
       </div>
 
-      <div className="mb-8 grid gap-4 md:grid-cols-[1fr_240px]">
-        <FileUpload spaceName={space.name} spaceId={space.id} />
+      <div className="mb-10 grid gap-4 md:grid-cols-[1fr_300px]">
+        <div className="flex min-h-[200px] items-center justify-center rounded-lg bg-card">
+          <FileUpload onFilesSelected={handleFilesSelected} />
+        </div>
 
-        <div className="space-y-4 rounded-lg bg-card p-4">
+        <div className="flex flex-col justify-between rounded-lg bg-card p-4">
           <div>
-            <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">
               storage info
             </p>
-            <div className="space-y-1 font-mono text-xs">
+            <div className="space-y-2.5 text-xs">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Total Size</span>
-                <span>{totalSizeStr}</span>
+                <span className="font-mono font-medium">{totalSizeStr}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Items Count</span>
-                <span>{files?.length ?? 0} items</span>
+                <span className="font-mono font-medium">{itemCount} items</span>
               </div>
-            </div>
-          </div>
-
-          <div className="space-y-2.5">
-            <DurationPicker value={duration} onChange={setDuration} />
-            <div className="relative">
-              <Lock className="absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                type="password"
-                placeholder="password (optional)"
-                className="h-8 pl-8 font-mono text-xs"
-                value={spacePassword}
-                onChange={(e) => setSpacePassword(e.target.value)}
-              />
             </div>
           </div>
 
           <Button
-            onClick={handleSave}
-            disabled={!canSave || !hasChanges || updateSpace.isPending}
-            className="w-full font-mono text-xs uppercase tracking-widest"
+            onClick={handleSaveClick}
+            disabled={!canSave || !hasChanges || isSaving}
+            className="mt-10 w-full text-xs font-medium uppercase tracking-widest"
           >
-            {updateSpace.isPending ? "saving..." : "update_space"}
+            {isSaving
+              ? "saving..."
+              : isNewSpace
+                ? "save space"
+                : "update space"}
           </Button>
         </div>
       </div>
 
       {hasFiles && (
         <div>
-          <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+          <p className="mb-4 text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
             Stored Items
           </p>
-          <FileList spaceName={space.name} isOwner={isOwner} />
+          <FileList
+            spaceName={space?.name ?? name}
+            isOwner={isOwner}
+            pendingFiles={pendingFiles}
+            onRemovePending={handleRemovePending}
+          />
         </div>
       )}
+
+      <SetPasswordDialog
+        open={showPasswordDialog}
+        onSubmit={handlePasswordSet}
+        onCancel={() => setShowPasswordDialog(false)}
+        loading={isSaving}
+      />
     </div>
   );
 }

@@ -2,43 +2,28 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useCreateSpace } from "@/hooks/use-space";
 import { spaceNameSchema } from "@/lib/schemas/space.schema";
 
 export function SpaceEditor() {
   const [name, setName] = useState("");
   const [nameError, setNameError] = useState("");
   const router = useRouter();
-  const createSpace = useCreateSpace();
 
   function validateName(value: string) {
     const result = spaceNameSchema.safeParse(value);
     setNameError(result.success ? "" : result.error.issues[0].message);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const result = spaceNameSchema.safeParse(name);
     if (!result.success) {
       setNameError(result.error.issues[0].message);
       return;
     }
-
-    const target = `/space/${name.toLowerCase()}`;
-    try {
-      await createSpace.mutateAsync({ name, duration: 5 });
-      router.push(target);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to create space";
-      if (message === "A space with this name already exists") {
-        router.push(target);
-      } else {
-        toast.error(message);
-      }
-    }
+    router.push(`/space/${name.toLowerCase()}`);
   }
 
   return (
@@ -55,14 +40,13 @@ export function SpaceEditor() {
         />
         <Button
           type="submit"
-          disabled={createSpace.isPending}
-          className="h-12 rounded-l-none px-6 font-mono text-xs uppercase tracking-widest"
+          className="h-12 rounded-l-none px-6 text-xs font-medium uppercase tracking-widest"
         >
-          {createSpace.isPending ? "..." : "enter_space"}
+          enter_space
         </Button>
       </form>
       {nameError && (
-        <p className="mt-2 font-mono text-xs text-destructive">{nameError}</p>
+        <p className="mt-2 text-xs text-destructive">{nameError}</p>
       )}
     </div>
   );

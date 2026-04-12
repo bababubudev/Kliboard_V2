@@ -3,23 +3,21 @@
 import { useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { Upload } from "lucide-react";
-import { useFileUpload } from "@/hooks/use-file-upload";
 import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE_BYTES } from "@/lib/constants";
 
 interface FileUploadProps {
-  spaceName: string;
-  spaceId: string;
+  onFilesSelected: (files: File[]) => void;
 }
 
-export function FileUpload({ spaceName, spaceId }: FileUploadProps) {
-  const { uploadFile, isPending } = useFileUpload(spaceName, spaceId);
+export function FileUpload({ onFilesSelected }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFiles = useCallback(
-    async (files: FileList | null) => {
-      if (!files?.length) return;
+    (fileList: FileList | null) => {
+      if (!fileList?.length) return;
 
-      for (const file of Array.from(files)) {
+      const accepted: File[] = [];
+      for (const file of Array.from(fileList)) {
         if (!ALLOWED_MIME_TYPES.includes(file.type)) {
           toast.error(`${file.name}: File type not allowed`);
           continue;
@@ -28,16 +26,12 @@ export function FileUpload({ spaceName, spaceId }: FileUploadProps) {
           toast.error(`${file.name}: File too large (max 10MB)`);
           continue;
         }
-        try {
-          await uploadFile(file);
-          toast.success(`${file.name} uploaded`);
-        } catch (err) {
-          const message = err instanceof Error ? err.message : "Upload failed";
-          toast.error(`${file.name}: ${message}`);
-        }
+        accepted.push(file);
       }
+
+      if (accepted.length) onFilesSelected(accepted);
     },
-    [uploadFile]
+    [onFilesSelected]
   );
 
   function handleDrop(e: React.DragEvent) {
@@ -54,18 +48,22 @@ export function FileUpload({ spaceName, spaceId }: FileUploadProps) {
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onClick={() => inputRef.current?.click()}
-      className="flex cursor-pointer flex-col items-center justify-center rounded-lg border border-border bg-card p-8 text-center transition-colors hover:bg-secondary"
+      className="flex cursor-pointer flex-col items-center justify-center rounded-lg p-8 text-center transition-colors hover:bg-secondary"
     >
-      <Upload className="mb-3 h-6 w-6 text-muted-foreground" />
-      <p className="font-mono text-xs text-muted-foreground">
-        {isPending ? "Uploading..." : "Drag and drop documents or images"}
+      <Upload className="mb-3 h-8 w-8 text-muted-foreground" />
+      <p className="text-sm font-medium">Upload Files</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Drag and drop documents or images
       </p>
       <input
         ref={inputRef}
         type="file"
         multiple
         className="hidden"
-        onChange={(e) => handleFiles(e.target.files)}
+        onChange={(e) => {
+          handleFiles(e.target.files);
+          if (inputRef.current) inputRef.current.value = "";
+        }}
       />
     </div>
   );

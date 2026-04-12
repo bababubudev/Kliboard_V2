@@ -1,31 +1,35 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-});
+const isDev = process.env.NODE_ENV === "development";
 
-export const writeRateLimiter = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(10, "1 h"),
-  prefix: "rl:write",
-});
+const noopLimiter = {
+  limit: () => Promise.resolve({ success: true }),
+} as unknown as Ratelimit;
 
-export const updateRateLimiter = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(30, "1 h"),
-  prefix: "rl:update",
-});
+let redis: Redis | null = null;
+function getRedis() {
+  if (!redis) {
+    redis = new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL!,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+    });
+  }
+  return redis;
+}
 
-export const readRateLimiter = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(100, "1 h"),
-  prefix: "rl:read",
-});
+export const writeRateLimiter = isDev
+  ? noopLimiter
+  : new Ratelimit({ redis: getRedis(), limiter: Ratelimit.slidingWindow(10, "1 h"), prefix: "rl:write" });
 
-export const uploadRateLimiter = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(20, "1 h"),
-  prefix: "rl:upload",
-});
+export const updateRateLimiter = isDev
+  ? noopLimiter
+  : new Ratelimit({ redis: getRedis(), limiter: Ratelimit.slidingWindow(30, "1 h"), prefix: "rl:update" });
+
+export const readRateLimiter = isDev
+  ? noopLimiter
+  : new Ratelimit({ redis: getRedis(), limiter: Ratelimit.slidingWindow(100, "1 h"), prefix: "rl:read" });
+
+export const uploadRateLimiter = isDev
+  ? noopLimiter
+  : new Ratelimit({ redis: getRedis(), limiter: Ratelimit.slidingWindow(20, "1 h"), prefix: "rl:upload" });
