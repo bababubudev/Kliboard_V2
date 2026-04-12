@@ -30,8 +30,8 @@ export function DurationPicker({
       <SelectTrigger
         className={
           compact
-            ? "h-8 w-[130px] gap-1 rounded-md border-border bg-secondary px-3 text-sm"
-            : "w-[180px]"
+            ? "h-8 w-32.5 gap-1 rounded-md border-0 bg-surface-container-high px-3 text-sm"
+            : "w-45"
         }
       >
         <span>{selectedLabel}</span>

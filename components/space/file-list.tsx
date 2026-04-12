@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSpaceFiles } from "@/hooks/use-file-upload";
 import { createClient } from "@/lib/supabase/client";
-import { X, FileText, FileSpreadsheet, FileIcon, Grid2x2, List } from "lucide-react";
+import { X, FileText, FileSpreadsheet, FileIcon } from "lucide-react";
 
 export interface PendingFile {
   id: string;
@@ -122,7 +122,7 @@ export function FileList({
 
   if (isLoading && !pendingFiles.length) {
     return (
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <Skeleton key={i} className="aspect-square rounded-lg" />
         ))}
@@ -133,7 +133,7 @@ export function FileList({
   if (!items.length) return null;
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
       {items.map((item, index) => {
         if (item.kind === "pending") {
           const { id, file, previewUrl } = item.data;
@@ -143,7 +143,7 @@ export function FileList({
           return (
             <div
               key={`pending-${id}`}
-              className="group relative aspect-square overflow-hidden rounded-lg border border-primary/30 bg-card"
+              className="group relative aspect-square overflow-hidden rounded-lg border-l-2 border-primary/40 bg-surface-container-lowest"
             >
               {isImage ? (
                 <img
@@ -152,14 +152,14 @@ export function FileList({
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <div className="flex h-full flex-col items-center justify-center gap-2 p-3">
+                <div className="flex h-full flex-col items-center justify-center gap-2 p-4">
                   <Icon className="h-8 w-8 text-muted-foreground" />
                   <p className="line-clamp-2 text-center text-[10px] text-muted-foreground">
                     {file.name}
                   </p>
                 </div>
               )}
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+              <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/70 to-transparent p-3">
                 <p className="truncate font-mono text-[10px] text-white">
                   {file.name}
                 </p>
@@ -184,7 +184,7 @@ export function FileList({
         return (
           <div
             key={`remote-${file.id}`}
-            className="group relative aspect-square cursor-pointer overflow-hidden rounded-lg border border-border/50 bg-card"
+            className="group relative aspect-square cursor-pointer overflow-hidden rounded-lg border-l-2 border-primary/20 bg-surface-container-lowest"
             onClick={() => handleOpenRemote(file)}
           >
             {isImage ? (
@@ -198,7 +198,7 @@ export function FileList({
                 unoptimized
               />
             ) : (
-              <div className="flex h-full flex-col items-center justify-center gap-2 p-3">
+              <div className="flex h-full flex-col items-center justify-center gap-2 p-4">
                 <Icon className="h-8 w-8 text-muted-foreground" />
                 <p className="line-clamp-2 text-center text-[10px] text-muted-foreground">
                   {file.filename}
@@ -206,8 +206,8 @@ export function FileList({
               </div>
             )}
             <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-              <p className="truncate font-mono text-[10px] text-white">
+            <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/70 to-transparent p-3">
+              <p className="truncate font-heading text-[11px] font-medium text-white">
                 {file.filename}
               </p>
               <p className="font-mono text-[9px] text-white/60">

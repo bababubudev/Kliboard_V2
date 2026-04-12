@@ -53,17 +53,19 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-[calc(100vh-8rem)] items-center justify-center px-4">
-      <div className="pointer-events-none absolute h-[300px] w-[400px] rounded-full bg-primary/5 blur-[80px]" />
-      <Card className="relative w-full max-w-md border-border/50">
+    <div className="relative flex min-h-[calc(100vh-8rem)] items-center justify-center px-6">
+      <div className="pointer-events-none absolute h-75 w-100 rounded-full bg-primary/5 blur-[80px]" />
+      <Card className="relative w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Login</CardTitle>
+          <CardTitle className="font-heading text-2xl font-medium tracking-tight">
+            Login
+          </CardTitle>
           <CardDescription>
             Sign in to manage your spaces
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -98,7 +100,7 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <p className="mt-4 text-center text-sm text-muted-foreground">
+          <p className="mt-5 text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}
             <Link href="/register" className="text-primary underline underline-offset-2">
               Register

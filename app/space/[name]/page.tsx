@@ -4,7 +4,6 @@ import { useState, useCallback, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { formatDistanceToNow } from "date-fns";
 
 function formatCountdown(expiresAt: string): string {
   const remaining = new Date(expiresAt).getTime() - Date.now();
@@ -42,9 +41,16 @@ import { FileList } from "@/components/space/file-list";
 import type { PendingFile } from "@/components/space/file-list";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
 import { DurationPicker } from "@/components/space/duration-picker";
-import { Globe, Lock, RefreshCw, ArrowDownUp, Copy, EllipsisVertical } from "lucide-react";
+import {
+  Globe,
+  Lock,
+  RefreshCw,
+  ArrowDownUp,
+  Copy,
+  EllipsisVertical,
+  Pencil,
+} from "lucide-react";
 
 interface FileRecord {
   id: string;
@@ -247,7 +253,7 @@ export default function SpacePage() {
 
   if (isPasswordProtected && !space) {
     return (
-      <div className="mx-auto max-w-5xl px-4 py-8">
+      <div className="mx-auto max-w-6xl px-6 py-8">
         <SpacePasswordDialog
           open={true}
           onSubmit={handlePasswordSubmit}
@@ -260,7 +266,7 @@ export default function SpacePage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-5xl space-y-4 px-4 py-6">
+      <div className="mx-auto max-w-6xl space-y-4 px-6 py-8">
         <Skeleton className="h-5 w-48" />
         <Skeleton className="h-44 w-full" />
       </div>
@@ -269,7 +275,7 @@ export default function SpacePage() {
 
   if (error && !isNewSpace) {
     return (
-      <div className="mx-auto max-w-5xl px-4 py-16 text-center">
+      <div className="mx-auto max-w-6xl px-6 py-16 text-center">
         <p className="text-sm text-muted-foreground">Something went wrong</p>
       </div>
     );
@@ -288,114 +294,152 @@ export default function SpacePage() {
   const itemCount = (files?.length ?? 0) + pendingFiles.length;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6">
-      <div className="mb-8">
-        <div className="mb-1.5 flex items-end justify-between">
-          <p className="text-base font-medium leading-none">Add Note</p>
-          <div className="flex items-end gap-3">
-            <div className="flex items-center self-end">
+    <div className="mx-auto max-w-6xl px-6 py-8">
+      <div className="mb-10 flex items-start justify-between">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+            Space
+          </p>
+          <h1 className="font-heading text-3xl font-medium tracking-tight">
+            {decodeURIComponent(name)}
+          </h1>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="text-right">
+            <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+              time until deletion
+            </p>
+            <p className="font-heading text-xl font-medium tabular-nums">
+              {space ? countdown : "unsaved"}
+            </p>
+          </div>
+          <div className="flex flex-col items-stretch gap-1">
+            <DurationPicker value={duration} onChange={setDuration} compact />
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <div
+              className={`flex h-8 items-center rounded-md p-0.5 transition-colors ${
+                isPrivate
+                  ? "bg-primary/15"
+                  : "bg-surface-container-high"
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => setIsPrivate(false)}
+                className={`flex h-7 w-8 items-center justify-center rounded-sm transition-all ${
+                  !isPrivate
+                    ? "bg-surface-container text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Globe className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsPrivate(true)}
+                className={`flex h-7 w-8 items-center justify-center rounded-sm transition-all ${
+                  isPrivate
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Lock className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mb-10 grid gap-5 lg:grid-cols-[1fr_320px]">
+        <div className="rounded-lg bg-surface-container-low p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+              <p className="font-heading text-sm font-medium">Add Note</p>
+            </div>
+            <div className="flex items-center">
               <div
                 className={`flex items-center gap-2 overflow-hidden transition-all duration-200 ${
-                  actionsOpen ? "max-w-[300px] opacity-100" : "max-w-0 opacity-0"
+                  actionsOpen
+                    ? "max-w-75 opacity-100"
+                    : "max-w-0 opacity-0"
                 }`}
               >
                 {space && !hasRemoteChanges && (
                   <button
-                    onClick={() => { handleRefresh(); setActionsOpen(false); }}
-                    className="flex shrink-0 items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                    onClick={() => {
+                      handleRefresh();
+                      setActionsOpen(false);
+                    }}
+                    className="flex shrink-0 items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
                   >
-                    <RefreshCw className="h-3.5 w-3.5" />
+                    <RefreshCw className="h-3 w-3" />
                     refresh
                   </button>
                 )}
                 {hasRemoteChanges && (
                   <button
-                    onClick={() => { handleSync(); setActionsOpen(false); }}
-                    className="flex shrink-0 items-center gap-1.5 text-xs uppercase tracking-wider text-primary"
+                    onClick={() => {
+                      handleSync();
+                      setActionsOpen(false);
+                    }}
+                    className="flex shrink-0 items-center gap-1.5 text-[10px] uppercase tracking-wider text-primary"
                   >
-                    <ArrowDownUp className="h-3.5 w-3.5" />
+                    <ArrowDownUp className="h-3 w-3" />
                     sync
                   </button>
                 )}
                 {content && (
                   <button
-                    onClick={() => { handleCopy(); setActionsOpen(false); }}
-                    className="flex shrink-0 items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                    onClick={() => {
+                      handleCopy();
+                      setActionsOpen(false);
+                    }}
+                    className="flex shrink-0 items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
                   >
-                    <Copy className="h-3.5 w-3.5" />
+                    <Copy className="h-3 w-3" />
                     copy
                   </button>
                 )}
-                <span className="h-4 w-px shrink-0 bg-border" />
+                <span className="h-4 w-px shrink-0 bg-ghost-border" />
               </div>
               <button
                 onClick={() => setActionsOpen((v) => !v)}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-container-high hover:text-foreground"
               >
                 <EllipsisVertical className="h-4 w-4" />
               </button>
             </div>
-            <div className="flex w-[130px] flex-col items-stretch gap-0.5">
-              <span className="text-center font-mono text-xs tabular-nums text-muted-foreground">
-                {space ? countdown : "unsaved"}
-              </span>
-              <DurationPicker
-                value={duration}
-                onChange={setDuration}
-                compact
-              />
-            </div>
-            <div className="flex flex-col items-stretch gap-0.5">
-              <span className="text-center text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                {isPrivate || space?.is_private ? "secure" : "public"}
-              </span>
-              <div className={`flex h-8 items-center rounded-md border p-0.5 transition-colors ${
-                isPrivate
-                  ? "border-primary/50 bg-primary/15"
-                  : "border-border bg-secondary"
-              }`}>
-                <button
-                  type="button"
-                  onClick={() => setIsPrivate(false)}
-                  className={`flex h-7 w-8 items-center justify-center rounded-sm transition-all ${
-                    !isPrivate
-                      ? "bg-card text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <Globe className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsPrivate(true)}
-                  className={`flex h-7 w-8 items-center justify-center rounded-sm transition-all ${
-                    isPrivate
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <Lock className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
+          </div>
+          <Textarea
+            className="min-h-45 resize-y border-0 bg-surface-container-high font-mono text-sm placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-primary/30"
+            placeholder="Start typing your thoughts here..."
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+          />
+          <div className="mt-4 flex justify-center">
+            <button
+              onClick={handleSaveClick}
+              disabled={!canSave || !hasChanges || isSaving}
+              className="rounded-md bg-linear-to-br from-primary to-primary-container px-8 py-2.5 text-xs font-medium uppercase tracking-widest text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+            >
+              {isSaving
+                ? "saving..."
+                : isNewSpace
+                  ? "Save Note"
+                  : "Update Note"}
+            </button>
           </div>
         </div>
-        <Textarea
-          className="min-h-[180px] resize-y border-border bg-card font-mono text-sm"
-          placeholder="Paste snippets, type notes, or drop files here..."
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-        />
-      </div>
 
-      <div className="mb-10 grid gap-4 md:grid-cols-[1fr_300px]">
-        <div className="flex min-h-[200px] items-center justify-center rounded-lg bg-card">
-          <FileUpload onFilesSelected={handleFilesSelected} />
-        </div>
+        <div className="flex flex-col gap-5">
+          <div className="flex flex-1 flex-col items-center justify-center rounded-lg bg-surface-container-low p-6">
+            <FileUpload onFilesSelected={handleFilesSelected} />
+          </div>
 
-        <div className="flex flex-col justify-between rounded-lg bg-card p-4">
-          <div>
-            <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">
+          <div className="rounded-lg bg-surface-container-low p-5">
+            <p className="mb-3 text-[10px] font-medium uppercase tracking-[0.15em] text-muted-foreground">
               storage info
             </p>
             <div className="space-y-2.5 text-xs">
@@ -405,28 +449,18 @@ export default function SpacePage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Items Count</span>
-                <span className="font-mono font-medium">{itemCount} items</span>
+                <span className="font-mono font-medium">
+                  {itemCount} items
+                </span>
               </div>
             </div>
           </div>
-
-          <Button
-            onClick={handleSaveClick}
-            disabled={!canSave || !hasChanges || isSaving}
-            className="mt-10 w-full text-xs font-medium uppercase tracking-widest"
-          >
-            {isSaving
-              ? "saving..."
-              : isNewSpace
-                ? "save space"
-                : "update space"}
-          </Button>
         </div>
       </div>
 
       {hasFiles && (
         <div>
-          <p className="mb-4 text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
+          <p className="mb-5 text-[10px] font-medium uppercase tracking-[0.15em] text-muted-foreground">
             Stored Items
           </p>
           <FileList

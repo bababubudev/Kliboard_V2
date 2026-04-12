@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { spaceNameSchema } from "@/lib/schemas/space.schema";
 
@@ -28,22 +27,22 @@ export function SpaceEditor() {
 
   return (
     <div className="w-full max-w-lg">
-      <form onSubmit={handleSubmit} className="flex">
+      <form onSubmit={handleSubmit} className="flex gap-0">
         <Input
-          placeholder="space_name"
+          placeholder="Type a name..."
           value={name}
           onChange={(e) => {
             setName(e.target.value);
             if (e.target.value) validateName(e.target.value);
           }}
-          className="h-12 rounded-r-none border-r-0 bg-card font-mono text-base"
+          className="h-12 rounded-r-none border-0 bg-surface-container-high font-mono text-sm placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-primary/30"
         />
-        <Button
+        <button
           type="submit"
-          className="h-12 rounded-l-none px-6 text-xs font-medium uppercase tracking-widest"
+          className="h-12 shrink-0 rounded-l-none rounded-r-md bg-linear-to-br from-primary to-primary-container px-6 text-xs font-medium uppercase tracking-widest text-primary-foreground transition-opacity hover:opacity-90"
         >
-          enter_space
-        </Button>
+          enter space
+        </button>
       </form>
       {nameError && (
         <p className="mt-2 text-xs text-destructive">{nameError}</p>

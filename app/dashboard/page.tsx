@@ -65,7 +65,7 @@ export default function DashboardPage() {
 
   if (authLoading) {
     return (
-      <div className="mx-auto max-w-5xl px-4 py-8 space-y-4">
+      <div className="mx-auto max-w-6xl space-y-4 px-6 py-8">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-16 w-full" />
         <Skeleton className="h-16 w-full" />
@@ -76,36 +76,38 @@ export default function DashboardPage() {
   if (!user) return null;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="mb-6 font-mono text-2xl font-bold">My Spaces</h1>
+    <div className="mx-auto max-w-6xl px-6 py-8">
+      <h1 className="mb-8 font-heading text-2xl font-medium tracking-tight">My Spaces</h1>
 
       {isLoading ? (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-20 w-full" />
+            <Skeleton key={i} className="h-20 w-full rounded-lg" />
           ))}
         </div>
       ) : !spaces?.length ? (
-        <div className="py-12 text-center">
+        <div className="py-16 text-center">
           <p className="text-muted-foreground">You haven&apos;t created any spaces yet.</p>
-          <Button className="mt-4" render={<Link href="/" />}>
+          <Button className="mt-6" render={<Link href="/" />}>
             Create a Space
           </Button>
         </div>
       ) : (
-        <div className="space-y-3">
-          {spaces.map((space) => {
+        <div className="space-y-2">
+          {spaces.map((space, index) => {
             const expired = new Date(space.expires_at) < new Date();
             return (
               <div
                 key={space.id}
-                className="group flex items-center justify-between rounded-lg border border-border/50 p-4 transition-all duration-200 hover:border-primary/20 hover:shadow-[0_0_15px_var(--glow-color)]"
+                className={`group flex items-center justify-between rounded-lg p-5 transition-colors hover:bg-surface-container ${
+                  index % 2 === 0 ? "bg-surface-container-low" : "bg-surface-dim"
+                }`}
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <Link
                       href={`/space/${space.name}`}
-                      className="font-medium hover:underline"
+                      className="font-heading font-medium tracking-tight hover:text-primary"
                     >
                       {space.name}
                     </Link>
@@ -125,17 +127,17 @@ export default function DashboardPage() {
                       <Badge variant="destructive">Expired</Badge>
                     )}
                   </div>
-                  <p className="mt-1 truncate text-sm text-muted-foreground font-mono">
+                  <p className="mt-1.5 truncate font-mono text-sm text-muted-foreground">
                     {space.content}
                   </p>
-                  <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                  <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
                     <Clock className="h-3 w-3" />
                     {expired
                       ? "Expired"
                       : `Expires ${formatDistanceToNow(new Date(space.expires_at), { addSuffix: true })}`}
                   </div>
                 </div>
-                <div className="flex gap-1 shrink-0 ml-4">
+                <div className="ml-4 flex shrink-0 gap-1">
                   <Button variant="ghost" size="icon" render={<Link href={`/space/${space.name}`} />}>
                     <ExternalLink className="h-4 w-4" />
                   </Button>

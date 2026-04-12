@@ -66,7 +66,8 @@ Always present an implementation plan to the user and get approval before making
 
 - **No custom CSS files.** All styling via Tailwind utility classes
 - **Dark mode first.** Use Tailwind `dark:` variant, system detection as default
-- **Fonts:** Inter for UI, JetBrains Mono for space content textarea
+- **Design system:** "The Architectural Shadow" — see `design/DESIGN.md` for full spec. Key rules: no 1px borders for sectioning (use tonal background shifts), no #FFFFFF, no glow/scanline effects, minimum `sm` (0.125rem) border-radius, ambient shadows only
+- **Fonts:** Space Grotesk for headings (`font-heading`), Inter for body/UI (`font-sans`), JetBrains Mono for space content textarea (`font-mono`)
 - **Toast notifications:** Use Sonner (shadcn/ui integration), not custom components
 - **Icons:** Use Lucide React, not hand-rolled SVGs
 - **Loading states:** Use shadcn/ui Skeleton components, not "Loading..." text

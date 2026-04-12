@@ -27,33 +27,24 @@ export function Navbar() {
   const spaceName = spaceMatch?.[1];
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-background">
-      <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
-        {spaceName ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Link href="/" className="text-base font-bold text-primary hover:underline">
-              kliboard
-            </Link>
-            <span>&gt;</span>
-            <span>Space</span>
-            <span>&gt;</span>
-            <span className="font-medium text-foreground">{decodeURIComponent(spaceName)}</span>
-          </div>
-        ) : (
-          <Link href="/" className="text-base font-bold text-primary">
-            kliboard
-          </Link>
-        )}
-        <div className="flex items-center gap-6">
+    <header className="sticky top-0 z-50 w-full bg-surface-dim/80 backdrop-blur-xl">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
+        <Link
+          href="/"
+          className="font-heading text-base font-medium tracking-tight text-foreground transition-colors hover:text-primary"
+        >
+          kliboard
+        </Link>
+        <div className="flex items-center gap-5">
+          <ThemeToggle />
           {!loading && user && (
             <Link
               href="/dashboard"
               className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
-              spaces
+              my spaces
             </Link>
           )}
-          <ThemeToggle />
           {!loading && (
             <>
               {user ? (

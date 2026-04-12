@@ -48,13 +48,21 @@ export function FileUpload({ onFilesSelected }: FileUploadProps) {
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onClick={() => inputRef.current?.click()}
-      className="flex cursor-pointer flex-col items-center justify-center rounded-lg p-8 text-center transition-colors hover:bg-secondary"
+      className="flex w-full cursor-pointer flex-col items-center justify-center rounded-lg p-8 text-center transition-colors hover:bg-surface-container"
     >
-      <Upload className="mb-3 h-8 w-8 text-muted-foreground" />
-      <p className="text-sm font-medium">Upload Files</p>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Drag and drop documents or images
+      <Upload className="mb-3 h-8 w-8 text-primary/60" />
+      <p className="font-heading text-sm font-medium">Upload Files</p>
+      <p className="mt-1.5 text-xs text-muted-foreground">
+        Drag and drop your assets here
+        <br />
+        or click to browse files
       </p>
+      <button
+        type="button"
+        className="mt-4 rounded-md bg-surface-container-high px-4 py-2 text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:bg-surface-bright hover:text-foreground"
+      >
+        Select Files
+      </button>
       <input
         ref={inputRef}
         type="file"
