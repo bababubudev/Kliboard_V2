@@ -9,7 +9,8 @@
       "WebFetch(domain:sonner.emilkowal.ski)",
       "Bash(curl -s http://localhost:3000/robots.txt)",
       "Bash(curl -s http://localhost:3000/sitemap.xml)",
-      "Bash(npm ls:*)"
+      "Bash(npm ls:*)",
+      "Bash(grep:*)"
     ]
   }
 }

@@ -31,7 +31,7 @@ function useCountdown(expiresAt?: string) {
 }
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSpace, useCreateSpace, useUpdateSpace, useToggleLock } from "@/hooks/use-space";
-import { useBatchFileUpload } from "@/hooks/use-file-upload";
+import { useBatchFileUpload, uploadFilesToStorage } from "@/hooks/use-file-upload";
 import { useAuth } from "@/hooks/use-auth";
 import { FileUpload } from "@/components/space/file-upload";
 import { FileList } from "@/components/space/file-list";
@@ -264,12 +264,43 @@ export default function SpacePage() {
       let savedSpace = space;
 
       if (isNewSpace) {
-        savedSpace = await createSpace.mutateAsync({
+        let filesMeta: { filename: string; storage_path: string; mime_type: string; size_bytes: number }[] | undefined;
+
+        if (pendingFiles.length > 0) {
+          const storageResults = await uploadFilesToStorage(
+            pendingFiles.map((p) => p.file),
+            name
+          );
+          const failed = storageResults.filter((r) => !r.success);
+          if (failed.length) {
+            for (const f of failed) toast.error(`${f.filename}: ${f.error}`);
+          }
+          filesMeta = storageResults
+            .filter((r) => r.success)
+            .map(({ filename, storage_path, mime_type, size_bytes }) => ({
+              filename,
+              storage_path,
+              mime_type,
+              size_bytes,
+            }));
+        }
+
+        const created = await createSpace.mutateAsync({
           name,
           content,
           duration,
+          files: filesMeta,
         });
-        queryClient.setQueryData(["space", name], savedSpace);
+        savedSpace = created;
+        queryClient.setQueryData(["space", name], created);
+
+        if (pendingFiles.length > 0) {
+          await queryClient.invalidateQueries({ queryKey: ["files", created.name] });
+          pendingFiles.forEach((p) => {
+            if (p.previewUrl) URL.revokeObjectURL(p.previewUrl);
+          });
+          setPendingFiles([]);
+        }
       } else {
         const updates: {
           content?: string;
@@ -280,28 +311,28 @@ export default function SpacePage() {
         if (Object.keys(updates).length > 0) {
           savedSpace = await updateSpace.mutateAsync(updates);
         }
-      }
 
-      if (pendingFiles.length > 0 && savedSpace) {
-        const results = await batchUpload.mutateAsync({
-          files: pendingFiles.map((p) => p.file),
-          spaceName: savedSpace.name,
-          spaceId: savedSpace.id,
-        });
+        if (pendingFiles.length > 0 && savedSpace) {
+          const results = await batchUpload.mutateAsync({
+            files: pendingFiles.map((p) => p.file),
+            spaceName: savedSpace.name,
+            spaceId: savedSpace.id,
+          });
 
-        const failed = results.filter((r) => !r.success);
-        if (failed.length) {
-          for (const f of failed) {
-            toast.error(`${f.filename}: ${f.error}`);
+          const failed = results.filter((r) => !r.success);
+          if (failed.length) {
+            for (const f of failed) {
+              toast.error(`${f.filename}: ${f.error}`);
+            }
           }
-        }
 
-        await queryClient.invalidateQueries({ queryKey: ["files", savedSpace.name] });
-        pendingFiles.forEach((p) => {
-          if (p.previewUrl) URL.revokeObjectURL(p.previewUrl);
-        });
-        setPendingFiles([]);
-        batchUpload.resetProgress();
+          await queryClient.invalidateQueries({ queryKey: ["files", savedSpace.name] });
+          pendingFiles.forEach((p) => {
+            if (p.previewUrl) URL.revokeObjectURL(p.previewUrl);
+          });
+          setPendingFiles([]);
+          batchUpload.resetProgress();
+        }
       }
 
       setSyncedContent(content);

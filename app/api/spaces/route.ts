@@ -5,6 +5,28 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { writeRateLimiter } from "@/lib/rate-limit";
 import { addMinutes } from "date-fns";
+import { MAX_SPACE_STORAGE_BYTES } from "@/lib/constants";
+
+async function insertFiles(
+  spaceId: string,
+  files: { filename: string; storage_path: string; mime_type: string; size_bytes: number }[]
+) {
+  const totalSize = files.reduce((sum, f) => sum + f.size_bytes, 0);
+  if (totalSize > MAX_SPACE_STORAGE_BYTES) return;
+
+  const admin = createAdminClient();
+  const { error } = await admin.from("files").insert(
+    files.map((f) => ({
+      space_id: spaceId,
+      filename: f.filename,
+      storage_path: f.storage_path,
+      mime_type: f.mime_type,
+      size_bytes: f.size_bytes,
+    }))
+  );
+
+  if (error) throw new Error(error.message);
+}
 
 export async function POST(request: Request) {
   const headerList = await headers();
@@ -25,7 +47,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { name, content, duration } = parsed.data;
+  const { name, content, duration, files } = parsed.data;
   const supabase = await createClient();
 
   const {
@@ -67,15 +89,15 @@ export async function POST(request: Request) {
         );
       }
 
-      const { data: files } = await admin
+      const { data: oldFiles } = await admin
         .from("files")
         .select("storage_path")
         .eq("space_id", existing.id);
 
-      if (files?.length) {
+      if (oldFiles?.length) {
         await admin.storage
           .from("space-files")
-          .remove(files.map((f) => f.storage_path));
+          .remove(oldFiles.map((f) => f.storage_path));
       }
 
       const { error: deleteError } = await admin
@@ -103,9 +125,17 @@ export async function POST(request: Request) {
         );
       }
 
+      if (files?.length && retryData) {
+        await insertFiles(retryData.id, files);
+      }
+
       return NextResponse.json(retryData, { status: 201 });
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (files?.length && data) {
+    await insertFiles(data.id, files);
   }
 
   return NextResponse.json(data, { status: 201 });

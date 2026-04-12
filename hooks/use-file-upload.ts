@@ -12,6 +12,51 @@ interface UploadResult {
   error?: string;
 }
 
+export interface StorageUploadResult {
+  filename: string;
+  storage_path: string;
+  mime_type: string;
+  size_bytes: number;
+  success: boolean;
+  error?: string;
+}
+
+export async function uploadFilesToStorage(
+  files: File[],
+  spaceName: string
+): Promise<StorageUploadResult[]> {
+  const supabase = createClient();
+  const results: StorageUploadResult[] = [];
+
+  for (const file of files) {
+    const path = `${spaceName}/${crypto.randomUUID()}-${file.name}`;
+    const { error } = await supabase.storage
+      .from("space-files")
+      .upload(path, file);
+
+    if (error) {
+      results.push({
+        filename: file.name,
+        storage_path: path,
+        mime_type: file.type,
+        size_bytes: file.size,
+        success: false,
+        error: error.message,
+      });
+    } else {
+      results.push({
+        filename: file.name,
+        storage_path: path,
+        mime_type: file.type,
+        size_bytes: file.size,
+        success: true,
+      });
+    }
+  }
+
+  return results;
+}
+
 interface UploadProgress {
   completed: number;
   total: number;

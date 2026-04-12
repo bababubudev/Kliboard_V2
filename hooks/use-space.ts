@@ -49,6 +49,7 @@ export function useCreateSpace() {
       name: string;
       content?: string;
       duration?: number;
+      files?: { filename: string; storage_path: string; mime_type: string; size_bytes: number }[];
     }) => {
       const res = await fetch("/api/spaces", {
         method: "POST",

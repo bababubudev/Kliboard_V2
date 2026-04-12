@@ -5,6 +5,9 @@ import {
   SPACE_NAME_MIN,
   SPACE_NAME_MAX,
   MAX_CONTENT_LENGTH,
+  ALLOWED_MIME_TYPES,
+  MAX_FILE_SIZE_BYTES,
+  MAX_FILES_PER_SPACE,
 } from "@/lib/constants";
 
 export const spaceNameSchema = z
@@ -20,6 +23,18 @@ export const spaceNameSchema = z
     "This name is reserved"
   );
 
+const fileMetadataItemSchema = z.object({
+  filename: z.string().min(1).max(255),
+  storage_path: z.string().min(1),
+  mime_type: z
+    .string()
+    .refine((v) => ALLOWED_MIME_TYPES.includes(v), "File type not allowed"),
+  size_bytes: z
+    .number()
+    .positive()
+    .max(MAX_FILE_SIZE_BYTES, "File too large (max 10MB)"),
+});
+
 export const createSpaceSchema = z.object({
   name: spaceNameSchema,
   content: z
@@ -32,6 +47,7 @@ export const createSpaceSchema = z.object({
     .optional()
     .default(5)
     .refine((v) => DURATION_VALUES.includes(v as number), "Invalid duration"),
+  files: z.array(fileMetadataItemSchema).max(MAX_FILES_PER_SPACE).optional(),
 });
 
 export const updateSpaceSchema = z.object({
