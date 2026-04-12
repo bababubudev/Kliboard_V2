@@ -6,7 +6,9 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/space/test)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/login)",
-      "WebFetch(domain:sonner.emilkowal.ski)"
+      "WebFetch(domain:sonner.emilkowal.ski)",
+      "Bash(curl -s http://localhost:3000/robots.txt)",
+      "Bash(curl -s http://localhost:3000/sitemap.xml)"
     ]
   }
 }

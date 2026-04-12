@@ -17,8 +17,46 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Kliboard",
-  description: "Temporary text clipboard. Create, share, and auto-expire.",
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://kliboard.vercel.app"
+  ),
+  title: {
+    default: "Kliboard",
+    template: "%s | Kliboard",
+  },
+  description:
+    "Temporary text clipboard. Create named spaces, paste text, share via space name. Auto-deletes after your chosen duration — no signup required.",
+  keywords: [
+    "clipboard",
+    "temporary",
+    "text sharing",
+    "paste",
+    "ephemeral",
+    "auto-delete",
+    "kliboard",
+  ],
+  openGraph: {
+    title: "Kliboard",
+    description:
+      "Temporary text clipboard. Create, share, and auto-expire — no signup required.",
+    siteName: "Kliboard",
+    type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary",
+    title: "Kliboard",
+    description:
+      "Temporary text clipboard. Create, share, and auto-expire — no signup required.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+    },
+  },
 };
 
 export default function RootLayout({
