@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, lazy, Suspense } from "react";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
 
@@ -36,7 +36,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { FileUpload } from "@/components/space/file-upload";
 import { FileList } from "@/components/space/file-list";
 import type { PendingFile } from "@/components/space/file-list";
-import { MarkdownRenderer } from "@/components/space/markdown-renderer";
+const MarkdownRenderer = lazy(() => import("@/components/space/markdown-renderer").then((m) => ({ default: m.MarkdownRenderer })));
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -622,7 +622,22 @@ export default function SpacePage() {
             </div>
           </div>
           <div id="md-preview-print" className="flex-1 overflow-y-auto pr-2">
-            <MarkdownRenderer content={content} />
+            {previewOpen && (
+              <Suspense fallback={
+                <div className="space-y-3 py-2">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-5/6" />
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-2/3" />
+                  <Skeleton className="h-8 w-full mt-4" />
+                  <Skeleton className="h-3 w-4/5" />
+                  <Skeleton className="h-3 w-full" />
+                </div>
+              }>
+                <MarkdownRenderer content={content} />
+              </Suspense>
+            )}
           </div>
         </DialogContent>
       </Dialog>
