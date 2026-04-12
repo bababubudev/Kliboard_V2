@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -13,10 +13,9 @@ function formatCountdown(expiresAt: string): string {
   const hours = Math.floor((totalSeconds % 86400) / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
-  if (days > 0) {
-    return `${days}d ${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m`;
-  }
-  return `${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
+  if (days > 0) return `${days}d ${String(hours).padStart(2, "0")}h`;
+  if (hours > 0) return `${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m`;
+  return `${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
 }
 
 function useCountdown(expiresAt?: string) {
@@ -41,15 +40,13 @@ import { FileList } from "@/components/space/file-list";
 import type { PendingFile } from "@/components/space/file-list";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { DurationPicker } from "@/components/space/duration-picker";
+import { DeletionCountdown } from "@/components/space/deletion-countdown";
+import { VisibilityToggle } from "@/components/space/visibility-toggle";
 import {
-  Globe,
-  Lock,
-  RefreshCw,
-  ArrowDownUp,
-  Copy,
+  NotepadText,
+  LayoutGrid,
+  List,
   EllipsisVertical,
-  Pencil,
 } from "lucide-react";
 
 interface FileRecord {
@@ -80,8 +77,18 @@ export default function SpacePage() {
   const [syncedDuration, setSyncedDuration] = useState(5);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
-  const [actionsOpen, setActionsOpen] = useState(false);
+  const [fileViewMode, setFileViewMode] = useState<"grid" | "list">("grid");
+  const [statusText, setStatusText] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const statusTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const countdown = useCountdown(space?.expires_at);
+
+  function showStatus(text: string) {
+    setStatusText(text);
+    clearTimeout(statusTimeout.current);
+    statusTimeout.current = setTimeout(() => setStatusText(""), 2000);
+  }
 
   const queryClient = useQueryClient();
   const createSpace = useCreateSpace();
@@ -160,24 +167,21 @@ export default function SpacePage() {
     setAccessPassword(pw);
   }
 
-  async function handleRefresh() {
-    await refetch();
-    toast.success("Refreshed");
-  }
-
-  function handleSync() {
-    if (space) {
-      setContent(space.content);
-      setDuration(space.duration);
-      setSyncedContent(space.content);
-      setSyncedDuration(space.duration);
+  async function handleSync() {
+    const { data: fresh } = await refetch();
+    if (fresh) {
+      setContent(fresh.content);
+      setDuration(fresh.duration);
+      setSyncedContent(fresh.content);
+      setSyncedDuration(fresh.duration);
     }
+    showStatus("Synced");
   }
 
   async function handleCopy() {
     try {
       await navigator.clipboard.writeText(content);
-      toast.success("Copied");
+      showStatus("Copied!");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Copy failed";
       toast.error(msg);
@@ -282,20 +286,10 @@ export default function SpacePage() {
   }
 
   const isOwner = Boolean(user && space?.owner_id === user.id);
-  const totalSize =
-    (files?.reduce((sum, f) => sum + f.size_bytes, 0) ?? 0) +
-    pendingFiles.reduce((sum, p) => sum + p.file.size, 0);
-  const totalSizeStr =
-    totalSize < 1024
-      ? `${totalSize} B`
-      : totalSize < 1024 * 1024
-        ? `${(totalSize / 1024).toFixed(1)} KB`
-        : `${(totalSize / (1024 * 1024)).toFixed(1)} MB`;
-  const itemCount = (files?.length ?? 0) + pendingFiles.length;
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-8">
-      <div className="mb-10 flex items-start justify-between">
+      <div className="mb-10 flex items-center justify-between">
         <div>
           <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
             Space
@@ -304,170 +298,124 @@ export default function SpacePage() {
             {decodeURIComponent(name)}
           </h1>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="text-right">
-            <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
-              time until deletion
-            </p>
-            <p className="font-heading text-xl font-medium tabular-nums">
-              {space ? countdown : "unsaved"}
-            </p>
-          </div>
-          <div className="flex flex-col items-stretch gap-1">
-            <DurationPicker value={duration} onChange={setDuration} compact />
-          </div>
-          <div className="flex flex-col items-center gap-1">
-            <div
-              className={`flex h-8 items-center rounded-md p-0.5 transition-colors ${
-                isPrivate
-                  ? "bg-primary/15"
-                  : "bg-surface-container-high"
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() => setIsPrivate(false)}
-                className={`flex h-7 w-8 items-center justify-center rounded-sm transition-all ${
-                  !isPrivate
-                    ? "bg-surface-container text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <Globe className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsPrivate(true)}
-                className={`flex h-7 w-8 items-center justify-center rounded-sm transition-all ${
-                  isPrivate
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <Lock className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
+        <div className="flex items-stretch overflow-hidden rounded-lg bg-surface-container-low">
+          <DeletionCountdown
+            countdown={countdown}
+            isSaved={Boolean(space)}
+            duration={duration}
+            onDurationChange={setDuration}
+          />
         </div>
       </div>
 
       <div className="mb-10 grid gap-5 lg:grid-cols-[1fr_320px]">
-        <div className="rounded-lg bg-surface-container-low p-5">
-          <div className="mb-3 flex items-center justify-between">
+        <div
+          className="flex flex-col rounded-lg bg-surface-container-low p-6 ring-1 ring-ghost-border transition-[box-shadow] focus-within:ring-primary/30"
+          onClick={(e) => {
+            if (!(e.target as HTMLElement).closest("button")) {
+              textareaRef.current?.focus();
+            }
+          }}
+        >
+          <div className="mb-1.5 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+              <NotepadText className="h-3.5 w-3.5 text-muted-foreground" />
               <p className="font-heading text-sm font-medium">Add Note</p>
             </div>
-            <div className="flex items-center">
-              <div
-                className={`flex items-center gap-2 overflow-hidden transition-all duration-200 ${
-                  actionsOpen
-                    ? "max-w-75 opacity-100"
-                    : "max-w-0 opacity-0"
-                }`}
-              >
-                {space && !hasRemoteChanges && (
-                  <button
-                    onClick={() => {
-                      handleRefresh();
-                      setActionsOpen(false);
-                    }}
-                    className="flex shrink-0 items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    <RefreshCw className="h-3 w-3" />
-                    refresh
-                  </button>
-                )}
-                {hasRemoteChanges && (
-                  <button
-                    onClick={() => {
-                      handleSync();
-                      setActionsOpen(false);
-                    }}
-                    className="flex shrink-0 items-center gap-1.5 text-[10px] uppercase tracking-wider text-primary"
-                  >
-                    <ArrowDownUp className="h-3 w-3" />
-                    sync
-                  </button>
-                )}
-                {content && (
-                  <button
-                    onClick={() => {
-                      handleCopy();
-                      setActionsOpen(false);
-                    }}
-                    className="flex shrink-0 items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    <Copy className="h-3 w-3" />
-                    copy
-                  </button>
-                )}
-                <span className="h-4 w-px shrink-0 bg-ghost-border" />
+            <div className="flex items-center gap-2">
+              {statusText && (
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  {statusText}
+                </span>
+              )}
+              <div className="flex items-center">
+                <div className={`flex items-center gap-3 overflow-hidden transition-all duration-200 ease-out ${menuOpen ? "max-w-48 mr-1 opacity-100" : "pointer-events-none max-w-0 opacity-0"}`}>
+                  {content && (
+                    <button
+                      onClick={() => { handleCopy(); setMenuOpen(false); }}
+                      className="mr-1 whitespace-nowrap text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      Copy
+                    </button>
+                  )}
+                  {space && (
+                    <button
+                      onClick={() => { handleSync(); setMenuOpen(false); }}
+                      className="mr-1 whitespace-nowrap text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      Sync
+                    </button>
+                  )}
+                </div>
+                <button
+                  onClick={() => setMenuOpen((v) => !v)}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-container-high hover:text-foreground"
+                >
+                  <EllipsisVertical className="h-3.5 w-3.5" />
+                </button>
               </div>
-              <button
-                onClick={() => setActionsOpen((v) => !v)}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-container-high hover:text-foreground"
-              >
-                <EllipsisVertical className="h-4 w-4" />
-              </button>
             </div>
           </div>
           <Textarea
-            className="min-h-45 resize-y border-0 bg-surface-container-high font-mono text-sm placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-primary/30"
+            ref={textareaRef}
+            className="h-48 resize-none border-0 bg-transparent px-0 py-0 font-mono text-sm shadow-none [field-sizing:fixed] overflow-y-auto break-all placeholder:text-muted-foreground focus-visible:ring-0"
             placeholder="Start typing your thoughts here..."
             value={content}
             onChange={(e) => setContent(e.target.value)}
           />
-          <div className="mt-4 flex justify-center">
+          <div className="mt-5 flex justify-end">
             <button
               onClick={handleSaveClick}
               disabled={!canSave || !hasChanges || isSaving}
-              className="rounded-md bg-linear-to-br from-primary to-primary-container px-8 py-2.5 text-xs font-medium uppercase tracking-widest text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+              className="rounded-sm bg-linear-to-br from-primary to-primary-container px-7 py-3 text-xs font-medium uppercase tracking-widest text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
             >
               {isSaving
                 ? "saving..."
                 : isNewSpace
-                  ? "Save Note"
-                  : "Update Note"}
+                  ? "Save Note \u2192"
+                  : "Update Note \u2192"}
             </button>
           </div>
         </div>
 
-        <div className="flex flex-col gap-5">
-          <div className="flex flex-1 flex-col items-center justify-center rounded-lg bg-surface-container-low p-6">
-            <FileUpload onFilesSelected={handleFilesSelected} />
-          </div>
-
-          <div className="rounded-lg bg-surface-container-low p-5">
-            <p className="mb-3 text-[10px] font-medium uppercase tracking-[0.15em] text-muted-foreground">
-              storage info
-            </p>
-            <div className="space-y-2.5 text-xs">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Total Size</span>
-                <span className="font-mono font-medium">{totalSizeStr}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Items Count</span>
-                <span className="font-mono font-medium">
-                  {itemCount} items
-                </span>
-              </div>
-            </div>
-          </div>
+        <div className="flex flex-col">
+          <FileUpload onFilesSelected={handleFilesSelected} />
         </div>
       </div>
 
       {hasFiles && (
         <div>
-          <p className="mb-5 text-[10px] font-medium uppercase tracking-[0.15em] text-muted-foreground">
-            Stored Items
-          </p>
+          <div className="mb-5 flex items-center justify-between">
+            <p className="font-heading text-lg font-medium">Stored Items</p>
+            <div className="flex items-center rounded-md bg-surface-container-high p-0.5">
+              <button
+                onClick={() => setFileViewMode("grid")}
+                className={`flex h-7 w-7 items-center justify-center rounded-sm transition-all ${
+                  fileViewMode === "grid"
+                    ? "bg-surface-container text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => setFileViewMode("list")}
+                className={`flex h-7 w-7 items-center justify-center rounded-sm transition-all ${
+                  fileViewMode === "list"
+                    ? "bg-surface-container text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <List className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
           <FileList
             spaceName={space?.name ?? name}
             isOwner={isOwner}
             pendingFiles={pendingFiles}
             onRemovePending={handleRemovePending}
+            viewMode={fileViewMode}
           />
         </div>
       )}

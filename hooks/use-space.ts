@@ -115,6 +115,8 @@ export function useDeleteSpace() {
   });
 }
 
+type RecentSpace = Space & { file_count: number };
+
 export function useRecentSpaces() {
   return useQuery({
     queryKey: ["recent-spaces"],
@@ -124,7 +126,7 @@ export function useRecentSpaces() {
         const errorData = await res.json();
         throw new Error(errorData.error ?? res.statusText);
       }
-      return res.json() as Promise<Space[]>;
+      return res.json() as Promise<RecentSpace[]>;
     },
   });
 }

@@ -16,15 +16,19 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("spaces")
-    .select("id, name, content, duration, expires_at, created_at, updated_at, is_private")
+    .select("id, name, content, duration, expires_at, created_at, updated_at, is_private, owner_id, files(count)")
     .eq("is_private", false)
     .gt("expires_at", new Date().toISOString())
-    .order("updated_at", { ascending: false })
-    .limit(10);
+    .order("updated_at", { ascending: false });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json(data);
+  const result = data.map(({ files, ...space }) => ({
+    ...space,
+    file_count: files[0]?.count ?? 0,
+  }));
+
+  return NextResponse.json(result);
 }

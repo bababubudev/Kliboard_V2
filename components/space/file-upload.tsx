@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Upload } from "lucide-react";
 import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE_BYTES } from "@/lib/constants";
@@ -11,6 +11,7 @@ interface FileUploadProps {
 
 export function FileUpload({ onFilesSelected }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
 
   const handleFiles = useCallback(
     (fileList: FileList | null) => {
@@ -36,30 +37,37 @@ export function FileUpload({ onFilesSelected }: FileUploadProps) {
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
+    setDragging(false);
     handleFiles(e.dataTransfer.files);
-  }
-
-  function handleDragOver(e: React.DragEvent) {
-    e.preventDefault();
   }
 
   return (
     <div
       onDrop={handleDrop}
-      onDragOver={handleDragOver}
-      onClick={() => inputRef.current?.click()}
-      className="flex w-full cursor-pointer flex-col items-center justify-center rounded-lg p-8 text-center transition-colors hover:bg-surface-container"
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={() => setDragging(false)}
+      className={`flex flex-1 flex-col items-center justify-center rounded-lg bg-surface-container-low p-10 text-center ring-1 transition-colors ${
+        dragging
+          ? "ring-primary/40 bg-primary/5"
+          : "ring-ghost-border"
+      }`}
     >
-      <Upload className="mb-3 h-8 w-8 text-primary/60" />
+      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-surface-container-high">
+        <Upload className="h-5 w-5 text-primary/70" />
+      </div>
       <p className="font-heading text-sm font-medium">Upload Files</p>
-      <p className="mt-1.5 text-xs text-muted-foreground">
+      <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
         Drag and drop your assets here
         <br />
         or click to browse files
       </p>
       <button
         type="button"
-        className="mt-4 rounded-md bg-surface-container-high px-4 py-2 text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:bg-surface-bright hover:text-foreground"
+        onClick={() => inputRef.current?.click()}
+        className="mt-5 rounded-md px-5 py-2 text-[10px] uppercase tracking-widest text-muted-foreground ring-1 ring-ghost-border transition-colors hover:text-foreground hover:ring-primary/30"
       >
         Select Files
       </button>

@@ -33,7 +33,7 @@ export function Navbar() {
           href="/"
           className="font-heading text-base font-medium tracking-tight text-foreground transition-colors hover:text-primary"
         >
-          kliboard
+          kliboard 2.0
         </Link>
         <div className="flex items-center gap-5">
           <ThemeToggle />

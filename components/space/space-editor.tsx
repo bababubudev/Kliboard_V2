@@ -27,7 +27,10 @@ export function SpaceEditor() {
 
   return (
     <div className="w-full max-w-lg">
-      <form onSubmit={handleSubmit} className="flex gap-0">
+      <form
+        onSubmit={handleSubmit}
+        className="flex items-center gap-2 rounded-lg bg-surface-container-high p-2 pl-4 ring-1 ring-ghost-border transition-colors focus-within:ring-primary/30"
+      >
         <Input
           placeholder="Type a name..."
           value={name}
@@ -35,11 +38,11 @@ export function SpaceEditor() {
             setName(e.target.value);
             if (e.target.value) validateName(e.target.value);
           }}
-          className="h-12 rounded-r-none border-0 bg-surface-container-high font-mono text-sm placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-primary/30"
+          className="h-10 border-0 bg-transparent text-sm shadow-none placeholder:text-muted-foreground focus-visible:ring-0"
         />
         <button
           type="submit"
-          className="h-12 shrink-0 rounded-l-none rounded-r-md bg-linear-to-br from-primary to-primary-container px-6 text-xs font-medium uppercase tracking-widest text-primary-foreground transition-opacity hover:opacity-90"
+          className="h-10 shrink-0 rounded-md bg-linear-to-br from-primary to-primary-container px-6 text-xs font-medium uppercase tracking-widest text-primary-foreground transition-opacity hover:opacity-90"
         >
           enter space
         </button>
