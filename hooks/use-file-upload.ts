@@ -1,13 +1,28 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+
+const MAX_CONCURRENT = 3;
+
+interface UploadResult {
+  filename: string;
+  success: boolean;
+  error?: string;
+}
+
+interface UploadProgress {
+  completed: number;
+  total: number;
+}
 
 export function useBatchFileUpload() {
   const supabase = createClient();
   const queryClient = useQueryClient();
+  const [progress, setProgress] = useState<UploadProgress>({ completed: 0, total: 0 });
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: async ({
       files,
       spaceName,
@@ -17,10 +32,13 @@ export function useBatchFileUpload() {
       spaceName: string;
       spaceId: string;
     }) => {
-      const results: { filename: string; success: boolean; error?: string }[] =
-        [];
+      const results: UploadResult[] = [];
+      setProgress({ completed: 0, total: files.length });
 
-      for (const file of files) {
+      const queue = [...files];
+      const inFlight: Promise<void>[] = [];
+
+      async function uploadOne(file: File) {
         const path = `${spaceName}/${crypto.randomUUID()}-${file.name}`;
         const { error: uploadError } = await supabase.storage
           .from("space-files")
@@ -32,7 +50,8 @@ export function useBatchFileUpload() {
             success: false,
             error: uploadError.message,
           });
-          continue;
+          setProgress((prev) => ({ ...prev, completed: prev.completed + 1 }));
+          return;
         }
 
         const res = await fetch(`/api/spaces/${spaceName}/files`, {
@@ -54,12 +73,37 @@ export function useBatchFileUpload() {
             success: false,
             error: errorData.error ?? "Failed to save metadata",
           });
-          continue;
+          await supabase.storage.from("space-files").remove([path]);
+        } else {
+          results.push({ filename: file.name, success: true });
         }
 
-        results.push({ filename: file.name, success: true });
+        setProgress((prev) => ({ ...prev, completed: prev.completed + 1 }));
       }
 
+      async function processQueue() {
+        while (queue.length > 0) {
+          const file = queue.shift()!;
+          const task = uploadOne(file);
+          inFlight.push(task);
+
+          if (inFlight.length >= MAX_CONCURRENT) {
+            await Promise.race(inFlight);
+            const settled = await Promise.allSettled(inFlight);
+            const stillPending: Promise<void>[] = [];
+            for (let i = 0; i < inFlight.length; i++) {
+              if (settled[i].status !== "fulfilled" && settled[i].status !== "rejected") {
+                stillPending.push(inFlight[i]);
+              }
+            }
+            inFlight.length = 0;
+            inFlight.push(...stillPending);
+          }
+        }
+        await Promise.all(inFlight);
+      }
+
+      await processQueue();
       return results;
     },
     onSuccess: (_data, variables) => {
@@ -68,6 +112,12 @@ export function useBatchFileUpload() {
       });
     },
   });
+
+  const reset = useCallback(() => {
+    setProgress({ completed: 0, total: 0 });
+  }, []);
+
+  return { ...mutation, progress, resetProgress: reset };
 }
 
 export function useSpaceFiles(spaceName: string) {

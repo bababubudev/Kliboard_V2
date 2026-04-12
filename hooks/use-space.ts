@@ -7,7 +7,7 @@ interface Space {
   id: string;
   name: string;
   content: string;
-  is_private: boolean;
+  is_locked: boolean;
   duration: number;
   expires_at: string;
   owner_id: string | null;
@@ -15,30 +15,23 @@ interface Space {
   updated_at: string;
 }
 
-async function fetchSpace(name: string, password?: string): Promise<Space> {
-  const headers: Record<string, string> = {};
-  if (password) {
-    headers["x-space-password"] = password;
-  }
-
-  const res = await fetch(`/api/spaces/${name}`, { headers });
+async function fetchSpace(name: string): Promise<Space> {
+  const res = await fetch(`/api/spaces/${name}`);
   if (!res.ok) {
     const data = await res.json();
     const error = new Error(data.error ?? res.statusText) as Error & {
       status: number;
-      passwordProtected?: boolean;
     };
     error.status = res.status;
-    error.passwordProtected = data.passwordProtected;
     throw error;
   }
   return res.json();
 }
 
-export function useSpace(name: string, password?: string) {
+export function useSpace(name: string) {
   return useQuery({
-    queryKey: ["space", name, password],
-    queryFn: () => fetchSpace(name, password),
+    queryKey: ["space", name],
+    queryFn: () => fetchSpace(name),
     refetchOnWindowFocus: false,
     retry: (failureCount, error) => {
       const err = error as Error & { status?: number };
@@ -56,7 +49,6 @@ export function useCreateSpace() {
       name: string;
       content?: string;
       duration?: number;
-      password?: string;
     }) => {
       const res = await fetch("/api/spaces", {
         method: "POST",
@@ -75,6 +67,7 @@ export function useCreateSpace() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recent-spaces"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-spaces"] });
     },
   });
 }
@@ -83,7 +76,7 @@ export function useUpdateSpace(name: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { content?: string; duration?: number; password?: string }) => {
+    mutationFn: async (data: { content?: string; duration?: number }) => {
       const res = await fetch(`/api/spaces/${name}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -96,7 +89,27 @@ export function useUpdateSpace(name: string) {
       return res.json();
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(["space", name, undefined], data);
+      queryClient.setQueryData(["space", name], data);
+      queryClient.invalidateQueries({ queryKey: ["dashboard-spaces"] });
+      queryClient.invalidateQueries({ queryKey: ["recent-spaces"] });
+    },
+  });
+}
+
+export function useToggleLock(name: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/spaces/${name}/lock`, { method: "PATCH" });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error ?? res.statusText);
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["space", name], data);
     },
   });
 }
@@ -115,6 +128,7 @@ export function useDeleteSpace() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recent-spaces"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-spaces"] });
     },
   });
 }

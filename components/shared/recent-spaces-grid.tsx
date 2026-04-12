@@ -5,7 +5,8 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRecentSpaces } from "@/hooks/use-space";
-import { FileText, Paperclip, FolderOpen, CircleDashed } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { FileText, Paperclip, FolderOpen, CircleDashed, Lock, LockOpen } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -35,13 +36,24 @@ function getDescription(content: string | null, fileCount: number): string {
 
 function SpaceCard({
   space,
+  showLock,
 }: {
-  space: { id: string; name: string; content: string; file_count: number; updated_at: string };
+  space: { id: string; name: string; content: string; file_count: number; updated_at: string; is_locked: boolean };
+  showLock: boolean;
 }) {
   const Icon = getIcon(!!space.content?.trim(), space.file_count > 0);
   return (
     <div className="group flex flex-col gap-3 rounded-lg bg-surface-container-low p-5 transition-colors hover:bg-surface-container">
-      <Icon className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
+      <div className="flex items-center justify-between">
+        <Icon className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
+        {showLock && (
+          space.is_locked ? (
+            <Lock className="h-3 w-3 text-muted-foreground/40" />
+          ) : (
+            <LockOpen className="h-3 w-3 text-muted-foreground/40" />
+          )
+        )}
+      </div>
       <div className="flex items-end justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate font-heading text-sm font-medium">
@@ -61,6 +73,8 @@ function SpaceCard({
 
 export function RecentSpacesGrid() {
   const { data: spaces, isLoading, error } = useRecentSpaces();
+  const { user } = useAuth();
+  const showLock = Boolean(user);
   const [open, setOpen] = useState(false);
 
   if (isLoading) {
@@ -82,7 +96,7 @@ export function RecentSpacesGrid() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {spaces.slice(0, GRID_LIMIT).map((space) => (
           <Link key={space.id} href={`/space/${space.name}`}>
-            <SpaceCard space={space} />
+            <SpaceCard space={space} showLock={showLock} />
           </Link>
         ))}
       </div>
@@ -101,7 +115,7 @@ export function RecentSpacesGrid() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[70vh] sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Public spaces</DialogTitle>
+            <DialogTitle>Recent spaces</DialogTitle>
           </DialogHeader>
           <div className="-mx-5 overflow-y-auto px-5">
             <div className="flex flex-col gap-2">
@@ -124,9 +138,18 @@ export function RecentSpacesGrid() {
                         {getDescription(space.content, space.file_count)}
                       </p>
                     </div>
-                    <span className="shrink-0 text-[9px] font-medium uppercase tracking-wider text-muted-foreground/40">
-                      {format(new Date(space.updated_at), "MMM d")}
-                    </span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {showLock && (
+                        space.is_locked ? (
+                          <Lock className="h-3 w-3 text-muted-foreground/40" />
+                        ) : (
+                          <LockOpen className="h-3 w-3 text-muted-foreground/40" />
+                        )
+                      )}
+                      <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground/40">
+                        {format(new Date(space.updated_at), "MMM d")}
+                      </span>
+                    </div>
                   </div>
                 </Link>
               ))}

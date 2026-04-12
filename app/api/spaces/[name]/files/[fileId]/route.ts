@@ -28,12 +28,17 @@ export async function DELETE(
 
   const { data: space } = await supabase
     .from("spaces")
-    .select("owner_id")
+    .select("owner_id, is_locked")
     .eq("id", file.space_id)
     .single();
 
-  if (!space || space.owner_id !== user.id) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!space) {
+    return NextResponse.json({ error: "Space not found" }, { status: 404 });
+  }
+
+  const isOwner = space.owner_id === user.id;
+  if (space.is_locked && !isOwner) {
+    return NextResponse.json({ error: "Space is locked" }, { status: 403 });
   }
 
   const { data: deleted, error } = await supabase

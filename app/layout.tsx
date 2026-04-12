@@ -29,8 +29,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      suppressHydrationWarning
-      className={cn(inter.variable, spaceGrotesk.variable, jetbrainsMono.variable)}
+      className={cn("dark", inter.variable, spaceGrotesk.variable, jetbrainsMono.variable)}
     >
       <body className="min-h-screen bg-background font-sans antialiased">
         <Providers>

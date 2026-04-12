@@ -9,6 +9,22 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSpaceFiles } from "@/hooks/use-file-upload";
 import { createClient } from "@/lib/supabase/client";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   X,
   FileText,
   FileSpreadsheet,
@@ -18,6 +34,7 @@ import {
   Trash2,
   Eye,
   Loader2,
+  EllipsisVertical,
 } from "lucide-react";
 
 export interface PendingFile {
@@ -37,7 +54,7 @@ interface FileRecord {
 
 interface FileListProps {
   spaceName: string;
-  isOwner: boolean;
+  canDelete: boolean;
   pendingFiles: PendingFile[];
   onRemovePending: (id: string) => void;
   viewMode: "grid" | "list";
@@ -126,13 +143,78 @@ async function copyToClipboard(text: string) {
   }
 }
 
+function FileActionsMenu({
+  file,
+  canDelete,
+  onOpen,
+  onDownload,
+  onShare,
+  onDelete,
+}: {
+  file: FileRecord;
+  canDelete: boolean;
+  onOpen: (file: FileRecord) => void;
+  onDownload: (file: FileRecord) => void;
+  onShare: (file: FileRecord) => void;
+  onDelete: (file: FileRecord) => void;
+}) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-container-high hover:text-foreground">
+          <EllipsisVertical className="h-3.5 w-3.5" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem className="cursor-pointer" onClick={() => onOpen(file)}>
+            <Eye className="mr-2 h-3.5 w-3.5" />
+            Open
+          </DropdownMenuItem>
+          <DropdownMenuItem className="cursor-pointer" onClick={() => onDownload(file)}>
+            <Download className="mr-2 h-3.5 w-3.5" />
+            Download
+          </DropdownMenuItem>
+          <DropdownMenuItem className="cursor-pointer" onClick={() => onShare(file)}>
+            <Share2 className="mr-2 h-3.5 w-3.5" />
+            Share
+          </DropdownMenuItem>
+          {canDelete && (
+            <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onClick={() => setConfirmDelete(true)}>
+              <Trash2 className="mr-2 h-3.5 w-3.5" />
+              Delete
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete file</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete &ldquo;{file.filename}&rdquo;? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => onDelete(file)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
 type UnifiedItem =
   | { kind: "remote"; data: FileRecord }
   | { kind: "pending"; data: PendingFile };
 
 export function FileList({
   spaceName,
-  isOwner,
+  canDelete,
   pendingFiles,
   onRemovePending,
   viewMode,
@@ -188,15 +270,27 @@ export function FileList({
 
   if (isLoading && !pendingFiles.length) {
     return (
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5">
         {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="aspect-square rounded-lg" />
+          <div key={i} className="flex flex-col overflow-hidden rounded-lg">
+            <Skeleton className="aspect-square" />
+            <div className="space-y-1.5 p-3">
+              <Skeleton className="h-3 w-3/4" />
+              <Skeleton className="h-2 w-1/2" />
+            </div>
+          </div>
         ))}
       </div>
     );
   }
 
-  if (!items.length) return null;
+  if (!items.length) {
+    return (
+      <div className="py-10 text-center">
+        <p className="text-sm text-muted-foreground">No files uploaded yet</p>
+      </div>
+    );
+  }
 
   if (viewMode === "list") {
     return (
@@ -227,7 +321,7 @@ export function FileList({
                 {!uploading && (
                   <button
                     onClick={() => onRemovePending(id)}
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-container-high hover:text-foreground"
+                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-container-high hover:text-foreground"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -264,33 +358,8 @@ export function FileList({
                   })}
                 </p>
               </div>
-              <div className={`flex items-center gap-1 transition-opacity ${isDeleting ? "pointer-events-none opacity-0" : "opacity-0 group-hover:opacity-100"}`}>
-                <button
-                  onClick={() => handleOpenRemote(file)}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-container-high hover:text-foreground"
-                >
-                  <Eye className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => handleDownload(file)}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-container-high hover:text-foreground"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => handleShare(file)}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-container-high hover:text-foreground"
-                >
-                  <Share2 className="h-3.5 w-3.5" />
-                </button>
-                {isOwner && (
-                  <button
-                    onClick={() => handleDeleteRemote(file)}
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                )}
+              <div className={`transition-opacity ${isDeleting ? "pointer-events-none opacity-0" : "opacity-0 group-hover:opacity-100"}`}>
+                <FileActionsMenu file={file} canDelete={canDelete} onOpen={handleOpenRemote} onDownload={handleDownload} onShare={handleShare} onDelete={handleDeleteRemote} />
               </div>
             </div>
           );
@@ -300,7 +369,7 @@ export function FileList({
   }
 
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+    <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5">
       {items.map((item, index) => {
         if (item.kind === "pending") {
           const { id, file, previewUrl } = item.data;
@@ -335,7 +404,7 @@ export function FileList({
                 {!uploading && (
                   <button
                     onClick={() => onRemovePending(id)}
-                    className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition-opacity hover:bg-black/70 group-hover:opacity-100"
+                    className="absolute top-2 right-2 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition-opacity hover:bg-black/70 group-hover:opacity-100"
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -382,7 +451,7 @@ export function FileList({
                   src={getFileUrl(file.storage_path)}
                   alt={file.filename}
                   fill
-                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                  sizes="(max-width: 640px) 33vw, (max-width: 1024px) 25vw, 20vw"
                   className="object-cover transition-transform duration-300 group-hover:scale-105"
                   loading={index < 4 ? "eager" : "lazy"}
                   unoptimized
@@ -412,36 +481,8 @@ export function FileList({
                   addSuffix: true,
                 })}
               </p>
-              <div className="absolute top-2 right-2 flex items-center gap-1">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDownload(file);
-                  }}
-                  className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-container-high hover:text-foreground"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleShare(file);
-                  }}
-                  className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-container-high hover:text-foreground"
-                >
-                  <Share2 className="h-3.5 w-3.5" />
-                </button>
-                {isOwner && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteRemote(file);
-                    }}
-                    className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                )}
+              <div className="absolute top-2 right-2" onClick={(e) => e.stopPropagation()}>
+                <FileActionsMenu file={file} canDelete={canDelete} onOpen={handleOpenRemote} onDownload={handleDownload} onShare={handleShare} onDelete={handleDeleteRemote} />
               </div>
             </div>
           </div>

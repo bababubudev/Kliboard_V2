@@ -7,7 +7,7 @@ import {
   SelectTrigger,
 } from "@/components/ui/select";
 import { DURATION_OPTIONS } from "@/lib/constants";
-import { Timer } from "lucide-react";
+import { AnimatedClock } from "@/components/space/animated-clock";
 
 interface DurationPickerProps {
   value: number;
@@ -39,14 +39,14 @@ export function DurationPicker({
       <SelectTrigger
         className={
           iconOnly
-            ? "flex w-9 items-center justify-center self-center rounded-md border-0 bg-transparent p-0 text-primary shadow-none transition-colors hover:text-primary/80 [&>svg:last-child]:hidden" : compact
+            ? "flex w-9 cursor-pointer items-center justify-center self-center rounded-md border-0 bg-transparent p-0 text-primary shadow-none transition-colors hover:text-primary/80 [&>svg:last-child]:hidden" : compact
               ? "h-8 w-32.5 gap-1 rounded-md border-0 bg-surface-container-high px-3 text-sm"
               : "w-45"
         }
         size="sm"
       >
         {iconOnly ? (
-          <Timer className="size-5" />
+          <AnimatedClock className="size-7" />
         ) : (
           <span>{selectedLabel}</span>
         )}

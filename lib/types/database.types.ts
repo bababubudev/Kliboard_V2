@@ -16,6 +16,7 @@ export interface Database {
           content: string;
           password_hash: string | null;
           is_private: boolean;
+          is_locked: boolean;
           duration: number;
           expires_at: string;
           owner_id: string | null;
@@ -28,6 +29,7 @@ export interface Database {
           content?: string;
           password_hash?: string | null;
           is_private?: boolean;
+          is_locked?: boolean;
           duration: number;
           expires_at: string;
           owner_id?: string | null;
@@ -40,6 +42,7 @@ export interface Database {
           content?: string;
           password_hash?: string | null;
           is_private?: boolean;
+          is_locked?: boolean;
           duration?: number;
           expires_at?: string;
           owner_id?: string | null;

@@ -38,7 +38,7 @@ export function SpaceEditor() {
             setName(e.target.value);
             if (e.target.value) validateName(e.target.value);
           }}
-          className="h-10 border-0 bg-transparent text-sm shadow-none placeholder:text-muted-foreground focus-visible:ring-0"
+          className="h-10 border-0 font-heading bg-transparent text-sm shadow-none placeholder:text-muted-foreground focus-visible:ring-0"
         />
         <button
           type="submit"

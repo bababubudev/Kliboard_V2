@@ -8,7 +8,7 @@ export default function Home() {
         enter a space name
       </h1>
       <p className="mb-14 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-        temporary, anonymous storage
+        temporary storage
       </p>
 
       <SpaceEditor />

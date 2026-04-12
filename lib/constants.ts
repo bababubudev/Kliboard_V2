@@ -23,6 +23,7 @@ export const RESERVED_NAMES = [
 
 export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 export const MAX_SPACE_STORAGE_BYTES = 50 * 1024 * 1024;
+export const MAX_FILES_PER_SPACE = 5;
 export const MAX_CONTENT_LENGTH = 50000;
 export const SPACE_NAME_MIN = 3;
 export const SPACE_NAME_MAX = 24;

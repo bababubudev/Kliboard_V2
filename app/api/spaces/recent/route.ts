@@ -16,8 +16,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("spaces")
-    .select("id, name, content, duration, expires_at, created_at, updated_at, is_private, owner_id, files(count)")
-    .eq("is_private", false)
+    .select("id, name, content, duration, expires_at, created_at, updated_at, owner_id, is_locked, files(count)")
     .gt("expires_at", new Date().toISOString())
     .order("updated_at", { ascending: false });
 

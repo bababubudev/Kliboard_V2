@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { compare, hash } from "bcryptjs";
 import { addMinutes } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
 import { updateSpaceSchema } from "@/lib/schemas/space.schema";
@@ -46,23 +45,6 @@ export async function GET(
     return NextResponse.json({ error: "Space expired" }, { status: 404 });
   }
 
-  if (space.password_hash) {
-    const providedPassword = request.headers.get("x-space-password");
-    if (!providedPassword) {
-      return NextResponse.json(
-        { error: "Password required", passwordProtected: true },
-        { status: 401 }
-      );
-    }
-    const valid = await compare(providedPassword, space.password_hash);
-    if (!valid) {
-      return NextResponse.json(
-        { error: "Invalid password", passwordProtected: true },
-        { status: 401 }
-      );
-    }
-  }
-
   const { password_hash: _, ...safeSpace } = space;
   return NextResponse.json(safeSpace);
 }
@@ -92,12 +74,33 @@ export async function PATCH(
 
   const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+  }
+
+  const { data: space } = await supabase
+    .from("spaces")
+    .select("id, owner_id, is_locked")
+    .eq("name", name.toLowerCase())
+    .single();
+
+  if (!space) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const isOwner = space.owner_id === user.id;
+  if (space.is_locked && !isOwner) {
+    return NextResponse.json({ error: "Space is locked" }, { status: 403 });
+  }
+
   const updateData: {
     content?: string;
     duration?: number;
     expires_at?: string;
-    password_hash?: string;
-    is_private?: boolean;
   } = {};
   if (parsed.data.content !== undefined) {
     updateData.content = parsed.data.content;
@@ -108,10 +111,6 @@ export async function PATCH(
       new Date(),
       parsed.data.duration
     ).toISOString();
-  }
-  if (parsed.data.password) {
-    updateData.password_hash = await hash(parsed.data.password, 10);
-    updateData.is_private = true;
   }
 
   const { data, error } = await supabase

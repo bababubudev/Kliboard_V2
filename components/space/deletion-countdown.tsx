@@ -8,7 +8,7 @@ interface DeletionCountdownProps {
   countdown: string;
   isSaved: boolean;
   duration: number;
-  onDurationChange: (value: number) => void;
+  onDurationChange?: (value: number) => void;
 }
 
 export function DeletionCountdown({
@@ -39,10 +39,12 @@ export function DeletionCountdown({
 
   const showDuration = !isSaved || showFlash;
 
+  const interactive = Boolean(onDurationChange);
+
   return (
     <div
-      className="flex cursor-pointer items-stretch gap-2 px-4 py-2 transition-colors hover:bg-surface-container-high/50"
-      onClick={() => setPickerOpen((v) => !v)}
+      className={`flex items-stretch gap-2 px-4 py-2 transition-colors ${interactive ? "cursor-pointer hover:bg-surface-container-high/50" : ""}`}
+      onClick={() => interactive && setPickerOpen((v) => !v)}
     >
       <div className="flex flex-col justify-center">
         <p className="text-[8px] uppercase tracking-[0.2em] text-muted-foreground transition-opacity duration-300">
@@ -61,14 +63,18 @@ export function DeletionCountdown({
           </p>
         </div>
       </div>
-      <span className="w-px bg-ghost-border" />
-      <DurationPicker
-        value={duration}
-        onChange={onDurationChange}
-        open={pickerOpen}
-        onOpenChange={setPickerOpen}
-        iconOnly
-      />
+      {onDurationChange && (
+        <>
+          <span className="w-px bg-ghost-border" />
+          <DurationPicker
+            value={duration}
+            onChange={onDurationChange}
+            open={pickerOpen}
+            onOpenChange={setPickerOpen}
+            iconOnly
+          />
+        </>
+      )}
     </div>
   );
 }

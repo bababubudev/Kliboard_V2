@@ -6,6 +6,7 @@ import { readRateLimiter, uploadRateLimiter } from "@/lib/rate-limit";
 import {
   ALLOWED_MIME_TYPES,
   MAX_FILE_SIZE_BYTES,
+  MAX_FILES_PER_SPACE,
   MAX_SPACE_STORAGE_BYTES,
 } from "@/lib/constants";
 
@@ -34,7 +35,7 @@ export async function POST(
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
-  await params;
+  const { name } = await params;
   const body = await request.json();
   const parsed = fileMetadataSchema.safeParse(body);
 
@@ -47,10 +48,41 @@ export async function POST(
 
   const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+  }
+
+  const { data: space } = await supabase
+    .from("spaces")
+    .select("id, owner_id, is_locked")
+    .eq("name", name.toLowerCase())
+    .single();
+
+  if (!space) {
+    return NextResponse.json({ error: "Space not found" }, { status: 404 });
+  }
+
+  const isOwner = space.owner_id === user.id;
+  if (space.is_locked && !isOwner) {
+    return NextResponse.json({ error: "Space is locked" }, { status: 403 });
+  }
+
   const { data: existingFiles } = await supabase
     .from("files")
     .select("size_bytes")
-    .eq("space_id", parsed.data.space_id);
+    .eq("space_id", space.id);
+
+  const fileCount = existingFiles?.length ?? 0;
+  if (fileCount >= MAX_FILES_PER_SPACE) {
+    return NextResponse.json(
+      { error: `File limit reached (max ${MAX_FILES_PER_SPACE} files per space)` },
+      { status: 413 }
+    );
+  }
 
   const currentTotal = existingFiles?.reduce((sum, f) => sum + f.size_bytes, 0) ?? 0;
   if (currentTotal + parsed.data.size_bytes > MAX_SPACE_STORAGE_BYTES) {
@@ -63,7 +95,7 @@ export async function POST(
   const { data, error } = await supabase
     .from("files")
     .insert({
-      space_id: parsed.data.space_id,
+      space_id: space.id,
       filename: parsed.data.filename,
       storage_path: parsed.data.storage_path,
       mime_type: parsed.data.mime_type,

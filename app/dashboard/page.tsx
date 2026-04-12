@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
@@ -9,27 +9,37 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/use-auth";
 import { useDeleteSpace } from "@/hooks/use-space";
 import { createClient } from "@/lib/supabase/client";
-import { Trash2, ExternalLink, Clock, Lock, Globe } from "lucide-react";
+import { Trash2, ExternalLink, Clock, Lock, LockOpen } from "lucide-react";
 
 interface UserSpace {
   id: string;
   name: string;
   content: string;
-  is_private: boolean;
+  is_locked: boolean;
   duration: number;
   expires_at: string;
   created_at: string;
   updated_at: string;
-  password_hash: string | null;
 }
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const deleteSpace = useDeleteSpace();
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -53,13 +63,16 @@ export default function DashboardPage() {
     enabled: Boolean(user),
   });
 
-  async function handleDelete(name: string) {
+  async function handleDelete() {
+    if (!deleteTarget) return;
     try {
-      await deleteSpace.mutateAsync(name);
+      await deleteSpace.mutateAsync(deleteTarget);
       toast.success("Space deleted");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to delete space";
       toast.error(message);
+    } finally {
+      setDeleteTarget(null);
     }
   }
 
@@ -111,18 +124,13 @@ export default function DashboardPage() {
                     >
                       {space.name}
                     </Link>
-                    {space.is_private && (
-                      <Badge variant="secondary">
-                        <Lock className="mr-1 h-3 w-3" />
-                        Private
-                      </Badge>
-                    )}
-                    {!space.is_private && (
-                      <Badge variant="outline">
-                        <Globe className="mr-1 h-3 w-3" />
-                        Public
-                      </Badge>
-                    )}
+                    <Badge variant="secondary">
+                      {space.is_locked ? (
+                        <><Lock className="mr-1 h-3 w-3" />Locked</>
+                      ) : (
+                        <><LockOpen className="mr-1 h-3 w-3" />Unlocked</>
+                      )}
+                    </Badge>
                     {expired && (
                       <Badge variant="destructive">Expired</Badge>
                     )}
@@ -144,7 +152,7 @@ export default function DashboardPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => handleDelete(space.name)}
+                    onClick={() => setDeleteTarget(space.name)}
                     disabled={deleteSpace.isPending}
                   >
                     <Trash2 className="h-4 w-4 text-destructive" />
@@ -155,6 +163,23 @@ export default function DashboardPage() {
           })}
         </div>
       )}
+
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete space</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete &ldquo;{deleteTarget}&rdquo;? This will permanently remove the space and all its files.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

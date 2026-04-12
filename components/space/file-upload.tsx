@@ -7,9 +7,10 @@ import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE_BYTES } from "@/lib/constants";
 
 interface FileUploadProps {
   onFilesSelected: (files: File[]) => void;
+  maxFiles?: number;
 }
 
-export function FileUpload({ onFilesSelected }: FileUploadProps) {
+export function FileUpload({ onFilesSelected, maxFiles }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -30,9 +31,13 @@ export function FileUpload({ onFilesSelected }: FileUploadProps) {
         accepted.push(file);
       }
 
-      if (accepted.length) onFilesSelected(accepted);
+      const limited = maxFiles !== undefined ? accepted.slice(0, maxFiles) : accepted;
+      if (limited.length < accepted.length) {
+        toast.error(`Only ${maxFiles} more file(s) allowed`);
+      }
+      if (limited.length) onFilesSelected(limited);
     },
-    [onFilesSelected]
+    [onFilesSelected, maxFiles]
   );
 
   function handleDrop(e: React.DragEvent) {
@@ -67,7 +72,7 @@ export function FileUpload({ onFilesSelected }: FileUploadProps) {
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="mt-5 rounded-md px-5 py-2 text-[10px] uppercase tracking-widest text-muted-foreground ring-1 ring-ghost-border transition-colors hover:text-foreground hover:ring-primary/30"
+        className="mt-5 cursor-pointer rounded-md px-5 py-2 text-[10px] uppercase tracking-widest text-muted-foreground ring-1 ring-ghost-border transition-colors hover:text-foreground hover:ring-primary/30"
       >
         Select Files
       </button>

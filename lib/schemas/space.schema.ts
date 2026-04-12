@@ -32,10 +32,6 @@ export const createSpaceSchema = z.object({
     .optional()
     .default(5)
     .refine((v) => DURATION_VALUES.includes(v as number), "Invalid duration"),
-  password: z
-    .string()
-    .min(4, "Password must be at least 4 characters")
-    .optional(),
 });
 
 export const updateSpaceSchema = z.object({
@@ -44,7 +40,6 @@ export const updateSpaceSchema = z.object({
     .number()
     .refine((v) => DURATION_VALUES.includes(v as number))
     .optional(),
-  password: z.string().min(4).optional(),
 });
 
 export type CreateSpaceInput = z.infer<typeof createSpaceSchema>;

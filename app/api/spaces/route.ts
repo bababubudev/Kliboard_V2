@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { hash } from "bcryptjs";
 import { createSpaceSchema } from "@/lib/schemas/space.schema";
 import { createClient } from "@/lib/supabase/server";
 import { writeRateLimiter } from "@/lib/rate-limit";
@@ -25,17 +24,12 @@ export async function POST(request: Request) {
     );
   }
 
-  const { name, content, duration, password } = parsed.data;
+  const { name, content, duration } = parsed.data;
   const supabase = await createClient();
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  let passwordHash: string | null = null;
-  if (password) {
-    passwordHash = await hash(password, 10);
-  }
 
   const expiresAt = addMinutes(new Date(), duration).toISOString();
   const normalizedName = name.toLowerCase();
@@ -45,8 +39,7 @@ export async function POST(request: Request) {
     content,
     duration,
     expires_at: expiresAt,
-    password_hash: passwordHash,
-    is_private: Boolean(passwordHash),
+    is_locked: true,
     owner_id: user?.id ?? null,
   };
 

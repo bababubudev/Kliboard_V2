@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { useAuth } from "@/hooks/use-auth";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -36,7 +35,6 @@ export function Navbar() {
           kliboard 2.0
         </Link>
         <div className="flex items-center gap-5">
-          <ThemeToggle />
           {!loading && user && (
             <Link
               href="/dashboard"
