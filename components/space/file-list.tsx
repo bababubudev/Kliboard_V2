@@ -134,7 +134,7 @@ export function FileList({
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-      {items.map((item) => {
+      {items.map((item, index) => {
         if (item.kind === "pending") {
           const { id, file, previewUrl } = item.data;
           const isImage = isImageFile(file.type);
@@ -194,6 +194,7 @@ export function FileList({
                 fill
                 sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                 className="object-cover transition-transform duration-300 group-hover:scale-105"
+                loading={index < 4 ? "eager" : "lazy"}
                 unoptimized
               />
             ) : (
