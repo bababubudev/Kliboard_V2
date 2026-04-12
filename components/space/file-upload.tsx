@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Upload } from "lucide-react";
 import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE_BYTES } from "@/lib/constants";
@@ -40,6 +40,19 @@ export function FileUpload({ onFilesSelected, maxFiles }: FileUploadProps) {
     [onFilesSelected, maxFiles]
   );
 
+  useEffect(() => {
+    function handlePaste(e: ClipboardEvent) {
+      const files = e.clipboardData?.files;
+      if (!files?.length) return;
+      const hasImages = Array.from(files).some((f) => f.type.startsWith("image/"));
+      if (!hasImages) return;
+      e.preventDefault();
+      handleFiles(files);
+    }
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [handleFiles]);
+
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setDragging(false);
@@ -65,7 +78,7 @@ export function FileUpload({ onFilesSelected, maxFiles }: FileUploadProps) {
       </div>
       <p className="font-heading text-sm font-medium">Upload Files</p>
       <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-        Drag and drop your assets here
+        Drag, drop, or paste images here
       </p>
       <button
         type="button"
