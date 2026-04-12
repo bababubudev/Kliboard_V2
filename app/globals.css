@@ -164,6 +164,10 @@
   51%, 100% { opacity: 0; }
 }
 
+[data-sonner-toaster] [data-sonner-toast] {
+  transition: transform 120ms ease-out, opacity 100ms ease-out, height 120ms ease-out !important;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

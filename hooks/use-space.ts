@@ -65,7 +65,11 @@ export function useCreateSpace() {
       });
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error ?? res.statusText);
+        const err = new Error(errorData.error ?? res.statusText) as Error & {
+          status: number;
+        };
+        err.status = res.status;
+        throw err;
       }
       return res.json();
     },

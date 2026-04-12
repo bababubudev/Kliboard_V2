@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 function formatCountdown(expiresAt: string): string {
@@ -49,15 +49,6 @@ import {
   EllipsisVertical,
 } from "lucide-react";
 
-interface FileRecord {
-  id: string;
-  filename: string;
-  storage_path: string;
-  mime_type: string;
-  size_bytes: number;
-  created_at: string;
-}
-
 export default function SpacePage() {
   const { name } = useParams<{ name: string }>();
   const [accessPassword, setAccessPassword] = useState<string | undefined>();
@@ -95,19 +86,6 @@ export default function SpacePage() {
   const updateSpace = useUpdateSpace(name);
   const batchUpload = useBatchFileUpload();
 
-  const { data: files } = useQuery({
-    queryKey: ["files", name],
-    queryFn: async () => {
-      const res = await fetch(`/api/spaces/${name}/files`);
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error ?? "Failed to load files");
-      }
-      return res.json() as Promise<FileRecord[]>;
-    },
-    enabled: Boolean(space),
-  });
-
   if (space && prevSpaceId !== space.id) {
     setPrevSpaceId(space.id);
     setContent(space.content);
@@ -123,9 +101,9 @@ export default function SpacePage() {
   const is404 = error && (error as Error & { status?: number }).status === 404;
   const isNewSpace = is404 && !isPasswordProtected;
 
-  const hasFiles = Boolean(files?.length) || Boolean(pendingFiles.length);
+  const hasPendingFiles = Boolean(pendingFiles.length);
   const hasContent = Boolean(content.trim());
-  const canSave = hasContent || hasFiles;
+  const canSave = hasContent || hasPendingFiles;
   const hasChanges = isNewSpace
     ? canSave
     : Boolean(
@@ -213,7 +191,7 @@ export default function SpacePage() {
           duration,
           password: password || undefined,
         });
-        queryClient.invalidateQueries({ queryKey: ["space", name] });
+        queryClient.setQueryData(["space", name, undefined], savedSpace);
       } else {
         const updates: {
           content?: string;
@@ -223,7 +201,9 @@ export default function SpacePage() {
         if (content !== space!.content) updates.content = content;
         if (duration !== space!.duration) updates.duration = duration;
         if (password) updates.password = password;
-        savedSpace = await updateSpace.mutateAsync(updates);
+        if (Object.keys(updates).length > 0) {
+          savedSpace = await updateSpace.mutateAsync(updates);
+        }
       }
 
       if (pendingFiles.length > 0 && savedSpace) {
@@ -240,6 +220,7 @@ export default function SpacePage() {
           }
         }
 
+        await queryClient.invalidateQueries({ queryKey: ["files", savedSpace.name] });
         pendingFiles.forEach((p) => {
           if (p.previewUrl) URL.revokeObjectURL(p.previewUrl);
         });
@@ -250,6 +231,11 @@ export default function SpacePage() {
       setSyncedDuration(duration);
       toast.success("Space saved");
     } catch (err) {
+      const status = (err as Error & { status?: number }).status;
+      if (status === 409) {
+        await refetch();
+        return;
+      }
       const msg = err instanceof Error ? err.message : "Save failed";
       toast.error(msg);
     }
@@ -372,8 +358,8 @@ export default function SpacePage() {
               {isSaving
                 ? "saving..."
                 : isNewSpace
-                  ? "Save Note \u2192"
-                  : "Update Note \u2192"}
+                  ? "Save Space \u2192"
+                  : "Update Space \u2192"}
             </button>
           </div>
         </div>
@@ -383,7 +369,7 @@ export default function SpacePage() {
         </div>
       </div>
 
-      {hasFiles && (
+      {(Boolean(space) || hasPendingFiles) && (
         <div>
           <div className="mb-5 flex items-center justify-between">
             <p className="font-heading text-lg font-medium">Stored Items</p>
@@ -416,6 +402,7 @@ export default function SpacePage() {
             pendingFiles={pendingFiles}
             onRemovePending={handleRemovePending}
             viewMode={fileViewMode}
+            uploading={batchUpload.isPending}
           />
         </div>
       )}

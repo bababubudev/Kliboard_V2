@@ -40,26 +40,51 @@ export async function POST(request: Request) {
   const expiresAt = addMinutes(new Date(), duration).toISOString();
   const normalizedName = name.toLowerCase();
 
+  const insertPayload = {
+    name: normalizedName,
+    content,
+    duration,
+    expires_at: expiresAt,
+    password_hash: passwordHash,
+    is_private: Boolean(passwordHash),
+    owner_id: user?.id ?? null,
+  };
+
   const { data, error } = await supabase
     .from("spaces")
-    .insert({
-      name: normalizedName,
-      content,
-      duration,
-      expires_at: expiresAt,
-      password_hash: passwordHash,
-      is_private: Boolean(passwordHash),
-      owner_id: user?.id ?? null,
-    })
+    .insert(insertPayload)
     .select()
     .single();
 
   if (error) {
     if (error.code === "23505") {
-      return NextResponse.json(
-        { error: "A space with this name already exists" },
-        { status: 409 }
-      );
+      const { error: deleteError } = await supabase
+        .from("spaces")
+        .delete()
+        .eq("name", normalizedName)
+        .lt("expires_at", new Date().toISOString());
+
+      if (deleteError) {
+        return NextResponse.json(
+          { error: "A space with this name already exists" },
+          { status: 409 }
+        );
+      }
+
+      const { data: retryData, error: retryError } = await supabase
+        .from("spaces")
+        .insert(insertPayload)
+        .select()
+        .single();
+
+      if (retryError) {
+        return NextResponse.json(
+          { error: "A space with this name already exists" },
+          { status: 409 }
+        );
+      }
+
+      return NextResponse.json(retryData, { status: 201 });
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

@@ -36,13 +36,18 @@ export async function DELETE(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  await supabase.storage.from("space-files").remove([file.storage_path]);
+  const { data: deleted, error } = await supabase
+    .from("files")
+    .delete()
+    .eq("id", file.id)
+    .select()
+    .single();
 
-  const { error } = await supabase.from("files").delete().eq("id", file.id);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error || !deleted) {
+    return NextResponse.json({ error: "Failed to delete file" }, { status: 500 });
   }
+
+  await supabase.storage.from("space-files").remove([file.storage_path]);
 
   return NextResponse.json({ deleted: true });
 }

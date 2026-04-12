@@ -14,6 +14,8 @@ interface DurationPickerProps {
   onChange: (value: number) => void;
   compact?: boolean;
   iconOnly?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function DurationPicker({
@@ -21,6 +23,8 @@ export function DurationPicker({
   onChange,
   compact,
   iconOnly,
+  open,
+  onOpenChange,
 }: DurationPickerProps) {
   const selectedLabel =
     DURATION_OPTIONS.find((o) => o.value === value)?.label ?? "Expiration";
@@ -29,6 +33,8 @@ export function DurationPicker({
     <Select
       value={String(value)}
       onValueChange={(v) => onChange(Number(v))}
+      open={open}
+      onOpenChange={onOpenChange}
     >
       <SelectTrigger
         className={
@@ -45,7 +51,7 @@ export function DurationPicker({
           <span>{selectedLabel}</span>
         )}
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent alignItemWithTrigger={false}>
         {DURATION_OPTIONS.map((option) => (
           <SelectItem key={option.value} value={String(option.value)}>
             {option.label}

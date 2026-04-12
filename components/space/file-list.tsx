@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -17,6 +17,7 @@ import {
   Share2,
   Trash2,
   Eye,
+  Loader2,
 } from "lucide-react";
 
 export interface PendingFile {
@@ -40,6 +41,7 @@ interface FileListProps {
   pendingFiles: PendingFile[];
   onRemovePending: (id: string) => void;
   viewMode: "grid" | "list";
+  uploading?: boolean;
 }
 
 const IMAGE_TYPES = [
@@ -134,6 +136,7 @@ export function FileList({
   pendingFiles,
   onRemovePending,
   viewMode,
+  uploading,
 }: FileListProps) {
   const { deleteFile } = useSpaceFiles(spaceName);
 
@@ -163,7 +166,10 @@ export function FileList({
     return list;
   }, [pendingFiles, remoteFiles]);
 
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   async function handleDeleteRemote(file: FileRecord) {
+    setDeletingId(file.id);
     try {
       await deleteFile.mutateAsync(file.id);
       toast.success(`${file.filename} deleted`);
@@ -171,6 +177,8 @@ export function FileList({
       const message =
         err instanceof Error ? err.message : "Failed to delete file";
       toast.error(message);
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -200,34 +208,50 @@ export function FileList({
             return (
               <div
                 key={`pending-${id}`}
-                className="flex items-center gap-4 rounded-lg bg-surface-container-low px-4 py-3"
+                className={`relative flex items-center gap-4 rounded-lg bg-surface-container-low px-4 py-3 transition-opacity ${uploading ? "opacity-50" : ""}`}
               >
+                {uploading && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  </div>
+                )}
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-surface-container-high">
                   <Icon className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{file.name}</p>
                   <p className="text-[10px] text-muted-foreground">
-                    {formatFileSize(file.size)} &middot; pending
+                    {formatFileSize(file.size)} &middot; {uploading ? "uploading" : "pending"}
                   </p>
                 </div>
-                <button
-                  onClick={() => onRemovePending(id)}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-container-high hover:text-foreground"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
+                {!uploading && (
+                  <button
+                    onClick={() => onRemovePending(id)}
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-container-high hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
             );
           }
 
           const file = item.data;
           const Icon = getFileTypeIcon(file.mime_type);
+          const isDeleting = deletingId === file.id;
           return (
             <div
               key={`remote-${file.id}`}
-              className="group flex items-center gap-4 rounded-lg bg-surface-container-low px-4 py-3"
+              className={`group relative flex items-center gap-4 rounded-lg bg-surface-container-low px-4 py-3 transition-opacity ${isDeleting ? "opacity-50" : ""}`}
             >
+              {isDeleting && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-lg">
+                  <Loader2 className="h-4 w-4 animate-spin text-destructive" />
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-destructive">
+                    Deleting
+                  </p>
+                </div>
+              )}
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-surface-container-high">
                 <Icon className="h-4 w-4 text-muted-foreground" />
               </div>
@@ -240,7 +264,7 @@ export function FileList({
                   })}
                 </p>
               </div>
-              <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+              <div className={`flex items-center gap-1 transition-opacity ${isDeleting ? "pointer-events-none opacity-0" : "opacity-0 group-hover:opacity-100"}`}>
                 <button
                   onClick={() => handleOpenRemote(file)}
                   className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-container-high hover:text-foreground"
@@ -286,8 +310,16 @@ export function FileList({
           return (
             <div
               key={`pending-${id}`}
-              className="group relative flex flex-col overflow-hidden rounded-lg bg-surface-container-low"
+              className={`group relative flex flex-col overflow-hidden rounded-lg bg-surface-container-low transition-opacity ${uploading ? "opacity-60" : ""}`}
             >
+              {uploading && (
+                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-surface-container-low/80">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Uploading
+                  </p>
+                </div>
+              )}
               <div className="relative aspect-square">
                 {isImage ? (
                   <img
@@ -300,19 +332,21 @@ export function FileList({
                     <Icon className="h-8 w-8 text-muted-foreground" />
                   </div>
                 )}
-                <button
-                  onClick={() => onRemovePending(id)}
-                  className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition-opacity hover:bg-black/70 group-hover:opacity-100"
-                >
-                  <X className="h-3 w-3" />
-                </button>
+                {!uploading && (
+                  <button
+                    onClick={() => onRemovePending(id)}
+                    className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition-opacity hover:bg-black/70 group-hover:opacity-100"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
               </div>
               <div className="flex flex-col gap-1 p-3">
                 <p className="truncate font-heading text-xs font-medium">
                   {file.name}
                 </p>
                 <p className="text-[10px] text-muted-foreground">
-                  {formatFileSize(file.size)} &middot; pending
+                  {formatFileSize(file.size)} &middot; {uploading ? "uploading" : "pending"}
                 </p>
               </div>
             </div>
@@ -322,16 +356,26 @@ export function FileList({
         const file = item.data;
         const isImage = isImageFile(file.mime_type);
         const Icon = getFileTypeIcon(file.mime_type);
+        const isDeleting = deletingId === file.id;
 
         return (
           <div
             key={`remote-${file.id}`}
-            className="group relative flex flex-col overflow-hidden rounded-lg bg-surface-container-low"
+            className={`group relative flex flex-col overflow-hidden rounded-lg bg-surface-container-low transition-opacity ${isDeleting ? "opacity-50" : ""}`}
           >
-            <div className="pointer-events-none absolute inset-0 z-10 bg-black/0 transition-colors group-hover:bg-black/10" />
+            {isDeleting ? (
+              <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-surface-container-low/80">
+                <Loader2 className="h-5 w-5 animate-spin text-destructive" />
+                <p className="text-[10px] font-medium uppercase tracking-wider text-destructive">
+                  Deleting
+                </p>
+              </div>
+            ) : (
+              <div className="pointer-events-none absolute inset-0 z-10 bg-black/0 transition-colors group-hover:bg-black/10" />
+            )}
             <div
-              className="relative aspect-square cursor-pointer overflow-hidden"
-              onClick={() => handleOpenRemote(file)}
+              className={`relative aspect-square overflow-hidden ${isDeleting ? "pointer-events-none" : "cursor-pointer"}`}
+              onClick={() => !isDeleting && handleOpenRemote(file)}
             >
               {isImage ? (
                 <Image
