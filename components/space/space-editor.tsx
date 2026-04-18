@@ -33,7 +33,7 @@ export function SpaceEditor() {
         className="flex items-center gap-2 rounded-lg bg-surface-container-high p-2 pl-4 ring-1 ring-ghost-border transition-colors focus-within:ring-primary/30"
       >
         <Input
-          placeholder="Type a name..."
+          placeholder="Or an existing one..."
           value={name}
           onChange={(e) => {
             setName(e.target.value);

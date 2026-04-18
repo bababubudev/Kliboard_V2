@@ -593,7 +593,7 @@ export default function SpacePage() {
       {
         <div>
           <div className="mb-5 flex items-center justify-between">
-            <p className="font-heading text-lg font-medium">Stored Items</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Stored Items</p>
             <div className="flex items-center rounded-md bg-surface-container-high p-0.5">
               <button
                 onClick={() => setFileViewMode("grid")}
