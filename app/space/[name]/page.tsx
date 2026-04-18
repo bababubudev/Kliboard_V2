@@ -58,6 +58,8 @@ import {
   Info,
   NotebookPen,
   Download,
+  Link,
+  Check,
   X,
 } from "lucide-react";
 
@@ -103,6 +105,8 @@ export default function SpacePage() {
   const [nameClipped, setNameClipped] = useState(false);
   const [nameExpanded, setNameExpanded] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+  const shareTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     const el = nameRef.current;
@@ -437,13 +441,30 @@ export default function SpacePage() {
               Space
             </p>
           )}
-          <h1
-            ref={nameRef}
-            onClick={() => nameClipped && setNameExpanded((v) => !v)}
-            className={`truncate font-heading text-3xl font-medium tracking-tight ${nameClipped ? "cursor-pointer" : ""}`}
-          >
-            {decodeURIComponent(name)}
-          </h1>
+          <div className="flex items-center gap-2.5">
+            <h1
+              ref={nameRef}
+              onClick={() => nameClipped && setNameExpanded((v) => !v)}
+              className={`truncate font-heading text-3xl font-medium tracking-tight ${nameClipped ? "cursor-pointer" : ""}`}
+            >
+              {decodeURIComponent(name)}
+            </h1>
+            {space && (
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.href);
+                  toast.success("Link copied to clipboard");
+                  setShareCopied(true);
+                  clearTimeout(shareTimeout.current);
+                  shareTimeout.current = setTimeout(() => setShareCopied(false), 2000);
+                }}
+                className="relative flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-container-high hover:text-foreground"
+              >
+                <Link className={`h-4 w-4 transition-all duration-200 ${shareCopied ? "scale-0 opacity-0" : "scale-100 opacity-100"}`} />
+                <Check className={`absolute h-4 w-4 text-primary transition-all duration-200 ${shareCopied ? "scale-100 opacity-100" : "scale-0 opacity-0"}`} />
+              </button>
+            )}
+          </div>
           {nameClipped && nameExpanded && (
             <p className="absolute left-0 z-10 mt-1 w-full break-all rounded-md bg-surface-container-high px-3 py-2 text-sm text-foreground shadow-md">
               {decodeURIComponent(name)}
