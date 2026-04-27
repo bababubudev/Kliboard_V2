@@ -669,9 +669,10 @@ export default function SpacePage() {
           <FileList
             spaceName={space?.name ?? name}
             canDelete={canModify && !isNewSpace}
-            pendingFiles={[]}
+            pendingFiles={isSaving ? pendingFiles : []}
             onRemovePending={handleRemovePending}
             viewMode={fileViewMode}
+            uploading={isSaving}
           />
         </div>
       }

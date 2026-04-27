@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSpaceFiles } from "@/hooks/use-file-upload";
 import { createClient } from "@/lib/supabase/client";
+import { fileItemVariants, baseTransition } from "@/lib/animations";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -128,6 +130,38 @@ async function shareOrCopy(file: FileRecord): Promise<"shared" | "copied"> {
   }
   await navigator.clipboard.writeText(url);
   return "copied";
+}
+
+function FadeInImage({
+  src,
+  alt,
+  fill,
+  sizes,
+  className,
+  loading,
+  unoptimized,
+}: {
+  src: string;
+  alt: string;
+  fill?: boolean;
+  sizes?: string;
+  className?: string;
+  loading?: "eager" | "lazy";
+  unoptimized?: boolean;
+}) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      fill={fill}
+      sizes={sizes}
+      className={`${className ?? ""} ${loaded ? "opacity-100" : "opacity-0"} transition-opacity duration-300`}
+      loading={loading}
+      unoptimized={unoptimized}
+      onLoad={() => setLoaded(true)}
+    />
+  );
 }
 
 function FileActionsMenu({
@@ -255,9 +289,18 @@ export function FileList({
   });
 
   const items: UnifiedItem[] = useMemo(() => {
+    const remoteKeys = new Set<string>();
+    if (remoteFiles) {
+      for (const r of remoteFiles) {
+        remoteKeys.add(`${r.filename}-${r.size_bytes}`);
+      }
+    }
     const list: UnifiedItem[] = [];
     for (const p of pendingFiles) {
-      list.push({ kind: "pending", data: p });
+      const k = `${p.file.name}-${p.file.size}`;
+      if (!remoteKeys.has(k)) {
+        list.push({ kind: "pending", data: p });
+      }
     }
     if (remoteFiles) {
       for (const r of remoteFiles) {
@@ -267,10 +310,16 @@ export function FileList({
     return list;
   }, [pendingFiles, remoteFiles]);
 
+  function itemKey(item: UnifiedItem): string {
+    return item.kind === "pending"
+      ? `file-${item.data.file.name}-${item.data.file.size}`
+      : `file-${item.data.filename}-${item.data.size_bytes}`;
+  }
+
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [removingId, setRemovingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const reduceMotion = useReducedMotion();
 
   async function handleShare(file: FileRecord) {
     try {
@@ -305,11 +354,8 @@ export function FileList({
     try {
       await deleteFile.mutateAsync(file.id);
       toast.success(`${file.filename} deleted`);
-      setDeletingId(null);
-      setRemovingId(file.id);
-      await new Promise((resolve) => setTimeout(resolve, 300));
       await queryClient.invalidateQueries({ queryKey: ["files", spaceName] });
-      setRemovingId(null);
+      setDeletingId(null);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to delete file";
@@ -338,99 +384,133 @@ export function FileList({
   if (viewMode === "list") {
     return (
       <div className="flex flex-col gap-2">
-        {items.map((item) => {
-          if (item.kind === "pending") {
-            const { id, file } = item.data;
-            const Icon = getFileTypeIcon(file.type);
+        <AnimatePresence initial={false} mode="popLayout">
+          {items.map((item) => {
+            if (item.kind === "pending") {
+              const { id, file, exiting } = item.data;
+              const Icon = getFileTypeIcon(file.type);
+              return (
+                <motion.div
+                  key={itemKey(item)}
+                  layout={reduceMotion ? false : "position"}
+                  variants={fileItemVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                  transition={baseTransition}
+                  className={`relative flex items-center gap-4 rounded-lg bg-surface-container-low px-4 py-3 ${uploading ? "opacity-60" : ""}`}
+                >
+                  {uploading && (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-lg">
+                      {exiting ? (
+                        <>
+                          <Check className="h-3.5 w-3.5 text-primary" />
+                          <p className="text-[10px] font-medium uppercase tracking-wider text-primary">Done</p>
+                        </>
+                      ) : (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      )}
+                    </div>
+                  )}
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-surface-container-high">
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{file.name}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {formatFileSize(file.size)} &middot; {uploading ? "uploading" : "pending"}
+                    </p>
+                  </div>
+                  {!uploading && (
+                    <button
+                      onClick={() => onRemovePending(id)}
+                      className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-container-high hover:text-foreground"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </motion.div>
+              );
+            }
+
+            const file = item.data;
+            const Icon = getFileTypeIcon(file.mime_type);
+            const isDeleting = deletingId === file.id;
             return (
-              <div
-                key={`pending-${id}`}
-                className={`relative flex items-center gap-4 rounded-lg bg-surface-container-low px-4 py-3 transition-opacity ${uploading ? "opacity-50" : ""}`}
+              <motion.div
+                key={itemKey(item)}
+                layout={reduceMotion ? false : "position"}
+                variants={fileItemVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                transition={baseTransition}
+                className={`group relative flex items-center gap-4 rounded-lg bg-surface-container-low px-4 py-3 ${isDeleting ? "opacity-50" : ""}`}
               >
-                {uploading && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg">
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                {isDeleting && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-lg">
+                    <Loader2 className="h-4 w-4 animate-spin text-destructive" />
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-destructive">
+                      Deleting
+                    </p>
                   </div>
                 )}
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-surface-container-high">
                   <Icon className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{file.name}</p>
+                  <p className="truncate text-sm font-medium">{file.filename}</p>
                   <p className="text-[10px] text-muted-foreground">
-                    {formatFileSize(file.size)} &middot; {uploading ? "uploading" : "pending"}
+                    {formatFileSize(file.size_bytes)} &middot;{" "}
+                    {formatDistanceToNow(new Date(file.created_at), {
+                      addSuffix: true,
+                    })}
                   </p>
                 </div>
-                {!uploading && (
-                  <button
-                    onClick={() => onRemovePending(id)}
-                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-container-high hover:text-foreground"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
+                <div className={`transition-opacity ${isDeleting ? "pointer-events-none opacity-0" : "opacity-0 group-hover:opacity-100"}`}>
+                  <FileActionsMenu file={file} canDelete={canDelete} onOpen={handleOpenRemote} onDownload={handleDownload} onShare={handleShare} onDelete={handleDeleteRemote} isDeleting={deletingId === file.id} isDownloading={downloadingId === file.id} isCopied={copiedId === file.id} />
+                </div>
+              </motion.div>
             );
-          }
-
-          const file = item.data;
-          const Icon = getFileTypeIcon(file.mime_type);
-          const isDeleting = deletingId === file.id;
-          const isRemoving = removingId === file.id;
-          return (
-            <div
-              key={`remote-${file.id}`}
-              className={`group relative flex animate-in fade-in-0 slide-in-from-top-2 items-center gap-4 rounded-lg bg-surface-container-low px-4 py-3 transition-opacity duration-300 ${isDeleting ? "opacity-50" : ""} ${isRemoving ? "animate-out fade-out-0 slide-out-to-top-2 fill-mode-forwards duration-300" : ""}`}
-            >
-              {isDeleting && !isRemoving && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-lg">
-                  <Loader2 className="h-4 w-4 animate-spin text-destructive" />
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-destructive">
-                    Deleting
-                  </p>
-                </div>
-              )}
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-surface-container-high">
-                <Icon className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{file.filename}</p>
-                <p className="text-[10px] text-muted-foreground">
-                  {formatFileSize(file.size_bytes)} &middot;{" "}
-                  {formatDistanceToNow(new Date(file.created_at), {
-                    addSuffix: true,
-                  })}
-                </p>
-              </div>
-              <div className={`transition-opacity ${isDeleting ? "pointer-events-none opacity-0" : "opacity-0 group-hover:opacity-100"}`}>
-                <FileActionsMenu file={file} canDelete={canDelete} onOpen={handleOpenRemote} onDownload={handleDownload} onShare={handleShare} onDelete={handleDeleteRemote} isDeleting={deletingId === file.id} isDownloading={downloadingId === file.id} isCopied={copiedId === file.id} />
-              </div>
-            </div>
-          );
-        })}
+          })}
+        </AnimatePresence>
       </div>
     );
   }
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-      {items.map((item, index) => {
-        if (item.kind === "pending") {
-          const { id, file, previewUrl } = item.data;
-          const isImage = isImageFile(file.type);
-          const Icon = getFileTypeIcon(file.type);
+      <AnimatePresence initial={false} mode="popLayout">
+        {items.map((item, index) => {
+          if (item.kind === "pending") {
+            const { id, file, previewUrl, exiting } = item.data;
+            const isImage = isImageFile(file.type);
+            const Icon = getFileTypeIcon(file.type);
 
-          return (
-            <div
-              key={`pending-${id}`}
-              className={`group relative flex flex-col overflow-hidden rounded-lg bg-surface-container-low transition-opacity ${uploading ? "opacity-60" : ""}`}
-            >
+            return (
+              <motion.div
+                key={itemKey(item)}
+                layout={reduceMotion ? false : "position"}
+                variants={fileItemVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                transition={baseTransition}
+                className="group relative flex flex-col overflow-hidden rounded-lg bg-surface-container-low"
+              >
               {uploading && (
                 <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-surface-container-low/80">
-                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                    Uploading
-                  </p>
+                  {exiting ? (
+                    <>
+                      <Check className="h-5 w-5 text-primary" />
+                      <p className="text-[10px] font-medium uppercase tracking-wider text-primary">Done</p>
+                    </>
+                  ) : (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                      <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Uploading</p>
+                    </>
+                  )}
                 </div>
               )}
               <div className="relative aspect-4/3 overflow-hidden">
@@ -454,85 +534,91 @@ export function FileList({
                   </button>
                 )}
               </div>
+                <div className="relative p-3">
+                  <p className="truncate font-heading text-xs font-medium">
+                    {file.name}
+                  </p>
+                  <p className="text-[9px] uppercase tracking-wider text-muted-foreground">
+                    {formatFileSize(file.size)} &middot; {uploading ? "uploading" : "pending"}
+                  </p>
+                </div>
+              </motion.div>
+            );
+          }
+
+          const file = item.data;
+          const isImage = isImageFile(file.mime_type);
+          const Icon = getFileTypeIcon(file.mime_type);
+          const isDeleting = deletingId === file.id;
+
+          return (
+            <motion.div
+              key={itemKey(item)}
+              layout={reduceMotion ? false : "position"}
+              variants={fileItemVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              transition={baseTransition}
+              className={`group relative flex flex-col overflow-hidden rounded-lg bg-surface-container-low ${isDeleting ? "opacity-50" : ""}`}
+            >
+              {isDeleting ? (
+                <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-surface-container-low/80">
+                  <Loader2 className="h-5 w-5 animate-spin text-destructive" />
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-destructive">
+                    Deleting
+                  </p>
+                </div>
+              ) : (
+                <div className="pointer-events-none absolute inset-0 z-10 bg-black/0 transition-colors group-hover:bg-black/10" />
+              )}
+              <div
+                className={`relative aspect-4/3 overflow-hidden ${isDeleting ? "pointer-events-none" : "cursor-pointer"}`}
+                onClick={() => !isDeleting && handleOpenRemote(file)}
+              >
+                {isImage ? (
+                  <FadeInImage
+                    src={getFileUrl(file.storage_path)}
+                    alt={file.filename}
+                    fill
+                    sizes="(max-width: 640px) 33vw, (max-width: 1024px) 25vw, 20vw"
+                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    loading={index < 4 ? "eager" : "lazy"}
+                    unoptimized
+                  />
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center gap-3 p-4">
+                    <Icon className="h-10 w-10 text-muted-foreground" />
+                    <p className="line-clamp-2 text-center text-[10px] text-muted-foreground">
+                      {file.filename}
+                    </p>
+                  </div>
+                )}
+                {isImage && (
+                  <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/70 to-transparent px-3 pt-6 pb-2">
+                    <p className="font-mono text-[9px] text-white/70">
+                      {formatFileSize(file.size_bytes)}
+                    </p>
+                  </div>
+                )}
+              </div>
               <div className="relative p-3">
-                <p className="truncate font-heading text-xs font-medium">
-                  {file.name}
+                <p className="truncate pr-20 font-heading text-xs font-medium">
+                  {file.filename}
                 </p>
                 <p className="text-[9px] uppercase tracking-wider text-muted-foreground">
-                  {formatFileSize(file.size)} &middot; {uploading ? "uploading" : "pending"}
+                  {formatDistanceToNow(new Date(file.created_at), {
+                    addSuffix: true,
+                  })}
                 </p>
+                <div className="absolute top-2 right-2" onClick={(e) => e.stopPropagation()}>
+                  <FileActionsMenu file={file} canDelete={canDelete} onOpen={handleOpenRemote} onDownload={handleDownload} onShare={handleShare} onDelete={handleDeleteRemote} isDeleting={deletingId === file.id} isDownloading={downloadingId === file.id} isCopied={copiedId === file.id} />
+                </div>
               </div>
-            </div>
+            </motion.div>
           );
-        }
-
-        const file = item.data;
-        const isImage = isImageFile(file.mime_type);
-        const Icon = getFileTypeIcon(file.mime_type);
-        const isDeleting = deletingId === file.id;
-        const isRemoving = removingId === file.id;
-
-        return (
-          <div
-            key={`remote-${file.id}`}
-            className={`group relative flex animate-in fade-in-0 slide-in-from-top-2 flex-col overflow-hidden rounded-lg bg-surface-container-low transition-opacity duration-300 ${isDeleting ? "opacity-50" : ""} ${isRemoving ? "animate-out fade-out-0 slide-out-to-top-2 fill-mode-forwards duration-300" : ""}`}
-          >
-            {isDeleting && !isRemoving ? (
-              <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-surface-container-low/80">
-                <Loader2 className="h-5 w-5 animate-spin text-destructive" />
-                <p className="text-[10px] font-medium uppercase tracking-wider text-destructive">
-                  Deleting
-                </p>
-              </div>
-            ) : (
-              <div className="pointer-events-none absolute inset-0 z-10 bg-black/0 transition-colors group-hover:bg-black/10" />
-            )}
-            <div
-              className={`relative aspect-4/3 overflow-hidden ${isDeleting ? "pointer-events-none" : "cursor-pointer"}`}
-              onClick={() => !isDeleting && handleOpenRemote(file)}
-            >
-              {isImage ? (
-                <Image
-                  src={getFileUrl(file.storage_path)}
-                  alt={file.filename}
-                  fill
-                  sizes="(max-width: 640px) 33vw, (max-width: 1024px) 25vw, 20vw"
-                  className="object-cover transition-transform duration-300 group-hover:scale-105"
-                  loading={index < 4 ? "eager" : "lazy"}
-                  unoptimized
-                />
-              ) : (
-                <div className="flex h-full flex-col items-center justify-center gap-3 p-4">
-                  <Icon className="h-10 w-10 text-muted-foreground" />
-                  <p className="line-clamp-2 text-center text-[10px] text-muted-foreground">
-                    {file.filename}
-                  </p>
-                </div>
-              )}
-              {isImage && (
-                <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/70 to-transparent px-3 pt-6 pb-2">
-                  <p className="font-mono text-[9px] text-white/70">
-                    {formatFileSize(file.size_bytes)}
-                  </p>
-                </div>
-              )}
-            </div>
-            <div className="relative p-3">
-              <p className="truncate pr-20 font-heading text-xs font-medium">
-                {file.filename}
-              </p>
-              <p className="text-[9px] uppercase tracking-wider text-muted-foreground">
-                {formatDistanceToNow(new Date(file.created_at), {
-                  addSuffix: true,
-                })}
-              </p>
-              <div className="absolute top-2 right-2" onClick={(e) => e.stopPropagation()}>
-                <FileActionsMenu file={file} canDelete={canDelete} onOpen={handleOpenRemote} onDownload={handleDownload} onShare={handleShare} onDelete={handleDeleteRemote} isDeleting={deletingId === file.id} isDownloading={downloadingId === file.id} isCopied={copiedId === file.id} />
-              </div>
-            </div>
-          </div>
-        );
-      })}
+        })}
+      </AnimatePresence>
     </div>
   );
 }

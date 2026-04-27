@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { toast } from "sonner";
-import { Upload, X, FileText, FileSpreadsheet, FileIcon, Loader2, Check } from "lucide-react";
+import { Upload, X, FileText, FileSpreadsheet, FileIcon, Check } from "lucide-react";
 import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE_BYTES } from "@/lib/constants";
+import { fileItemVariants, baseTransition } from "@/lib/animations";
 import type { PendingFile } from "@/components/space/file-list";
 
 function formatFileSize(bytes: number): string {
@@ -37,6 +39,7 @@ interface FileUploadProps {
 export function FileUpload({ onFilesSelected, maxFiles, pendingFiles = [], onRemovePending, uploading, full, progress }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const reduceMotion = useReducedMotion();
 
   const handleFiles = useCallback(
     (fileList: FileList | null) => {
@@ -103,7 +106,7 @@ export function FileUpload({ onFilesSelected, maxFiles, pendingFiles = [], onRem
           <p className="text-xs font-medium text-muted-foreground">Drop files here</p>
         </div>
       )}
-      {pendingFiles.length > 0 ? (
+      {pendingFiles.length > 0 || uploading ? (
         <div className="flex flex-1 flex-col">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -132,33 +135,39 @@ export function FileUpload({ onFilesSelected, maxFiles, pendingFiles = [], onRem
             </div>
           )}
           <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto">
-            {pendingFiles.map(({ id, file, exiting }) => {
-              const Icon = getFileTypeIcon(file.type);
-              return (
-                <div
-                  key={id}
-                  className={`flex min-w-0 items-center gap-3 rounded-md bg-surface-container-high/50 px-3 py-2 transition-opacity ${uploading ? "opacity-50" : ""} ${exiting ? "animate-out fade-out-0 slide-out-to-bottom-2 fill-mode-forwards duration-300" : ""}`}
-                >
-                  {uploading && !exiting ? (
-                    <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
-                  ) : exiting ? (
-                    <Check className="h-3.5 w-3.5 shrink-0 text-primary" />
-                  ) : (
-                    <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  )}
-                  <p className="min-w-0 flex-1 truncate text-xs">{file.name}</p>
-                  <p className="shrink-0 text-[10px] text-muted-foreground">{formatFileSize(file.size)}</p>
-                  {!uploading && !exiting && onRemovePending && (
-                    <button
-                      onClick={() => onRemovePending(id)}
-                      className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  )}
-                </div>
-              );
-            })}
+            <AnimatePresence initial={false} mode="popLayout">
+              {(uploading ? [] : pendingFiles).map(({ id, file, exiting }) => {
+                const Icon = getFileTypeIcon(file.type);
+                return (
+                  <motion.div
+                    key={id}
+                    layout={reduceMotion ? false : "position"}
+                    variants={fileItemVariants}
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                    transition={baseTransition}
+                    className="flex min-w-0 items-center gap-3 rounded-md bg-surface-container-high/50 px-3 py-2"
+                  >
+                    {exiting ? (
+                      <Check className="h-3.5 w-3.5 shrink-0 text-primary" />
+                    ) : (
+                      <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    )}
+                    <p className="min-w-0 flex-1 truncate text-xs">{file.name}</p>
+                    <p className="shrink-0 text-[10px] text-muted-foreground">{formatFileSize(file.size)}</p>
+                    {!exiting && onRemovePending && (
+                      <button
+                        onClick={() => onRemovePending(id)}
+                        className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
           </div>
         </div>
       ) : full ? (

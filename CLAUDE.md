@@ -18,6 +18,7 @@ Temporary text clipboard web app. Users create named "spaces," paste text, share
 - **Rate limiting:** Upstash Redis + @upstash/ratelimit
 - **Date handling:** date-fns 3.x+
 - **Icons:** Lucide React
+- **Animation:** Motion (`motion/react`) — for state transitions and entry/exit. Variants in `lib/animations.ts`
 - **Deployment:** Vercel (free tier)
 
 ## Project Structure
@@ -82,6 +83,13 @@ Treat this file as living documentation. When the user shares a notable rule, co
 - **Space names:** letters and hyphens, 3-24 chars, start/end with letter, lowercase on server
 - **Duration values in minutes:** 5, 60, 600, 1440, 14400
 - **Supabase publishable key** (not legacy anon key): `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- **Animation rules:**
+  - Use `motion/react` (`AnimatePresence` + `motion.*`) for state changes, entry/exit, list reorder. CSS transitions only for hover/focus.
+  - Shared variants and timing live in `lib/animations.ts` — import them, don't redefine. Default duration 150–250ms, ease `[0.22, 1, 0.36, 1]`
+  - Always wrap dynamic lists in `<AnimatePresence>` so removals animate
+  - `layout` prop only for genuine position morphs (e.g. file pending↔stored, list reorder). Avoid blanket use — perf cost
+  - Always honor `useReducedMotion()` (disable `layout`, skip non-essential motion)
+  - Don't animate: theme toggle, polling-driven content updates (every 5s), Radix/Base UI components (already animated), skeletons
 
 ## What NOT to Use
 

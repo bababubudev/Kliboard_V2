@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { DurationPicker } from "@/components/space/duration-picker";
 import { MarkdownRenderer } from "@/components/space/markdown-renderer";
 import { useUpdateSpace } from "@/hooks/use-space";
+import { fadeIn, baseTransition } from "@/lib/animations";
 import { Copy, Save, Clock } from "lucide-react";
 
 interface SpaceViewerProps {
@@ -79,48 +81,66 @@ export function SpaceViewer({ space }: SpaceViewerProps) {
         </div>
       </div>
 
-      {isEditing ? (
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Content</Label>
-            <Textarea
-              className="min-h-[300px] font-mono"
-              placeholder="Paste your text here..."
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-            />
-          </div>
-          <div className="flex items-end gap-4">
+      <AnimatePresence mode="wait" initial={false}>
+        {isEditing ? (
+          <motion.div
+            key="editor"
+            variants={fadeIn}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            transition={baseTransition}
+            className="space-y-4"
+          >
             <div className="space-y-2">
-              <Label>Expires In</Label>
-              <DurationPicker value={duration} onChange={setDuration} />
+              <Label>Content</Label>
+              <Textarea
+                className="min-h-75 font-mono"
+                placeholder="Paste your text here..."
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+              />
             </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={handleSave}
-                disabled={!hasChanges || !content.trim() || updateSpace.isPending}
-              >
-                <Save className="mr-2 h-4 w-4" />
-                {updateSpace.isPending ? "Saving..." : "Save"}
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setContent(space.content);
-                  setDuration(space.duration);
-                  setIsEditing(false);
-                }}
-              >
-                Cancel
-              </Button>
+            <div className="flex items-end gap-4">
+              <div className="space-y-2">
+                <Label>Expires In</Label>
+                <DurationPicker value={duration} onChange={setDuration} />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleSave}
+                  disabled={!hasChanges || !content.trim() || updateSpace.isPending}
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  {updateSpace.isPending ? "Saving..." : "Save"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setContent(space.content);
+                    setDuration(space.duration);
+                    setIsEditing(false);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
             </div>
-          </div>
-        </div>
-      ) : (
-        <div className="rounded-lg border border-primary/10 bg-card/80 p-6 backdrop-blur-sm">
-          <MarkdownRenderer content={space.content} className="font-mono text-sm" />
-        </div>
-      )}
+          </motion.div>
+        ) : (
+          <motion.div
+            key="viewer"
+            variants={fadeIn}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            transition={baseTransition}
+            className="rounded-lg border border-primary/10 bg-card/80 p-6 backdrop-blur-sm"
+          >
+            <MarkdownRenderer content={space.content} className="font-mono text-sm" />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

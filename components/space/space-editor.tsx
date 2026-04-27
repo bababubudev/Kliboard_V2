@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { spaceNameSchema } from "@/lib/schemas/space.schema";
+import { errorVariants, baseTransition } from "@/lib/animations";
 import { CircleAlert } from "lucide-react";
 
 export function SpaceEditor() {
@@ -48,10 +50,24 @@ export function SpaceEditor() {
           enter space
         </button>
       </form>
-      <p className={`mt-2 flex items-center gap-1.5 text-[10px] uppercase tracking-[0.15em] text-destructive ${nameError ? "visible" : "invisible"}`}>
-        <CircleAlert className="h-3 w-3 shrink-0" />
-        {nameError || "\u00A0"}
-      </p>
+      <div className="mt-2 h-3.5">
+        <AnimatePresence initial={false}>
+          {nameError && (
+            <motion.p
+              key={nameError}
+              variants={errorVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              transition={baseTransition}
+              className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.15em] text-destructive"
+            >
+              <CircleAlert className="h-3 w-3 shrink-0" />
+              {nameError}
+            </motion.p>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

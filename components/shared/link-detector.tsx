@@ -1,6 +1,21 @@
 "use client";
 
-const URL_REGEX = /https?:\/\/[^\s<>'")\]]+/g;
+const COMMON_TLDS = [
+  "com", "net", "org", "io", "dev", "app", "co", "ai", "edu", "gov",
+  "info", "biz", "tv", "me", "eu", "uk", "de", "fr", "jp", "cn", "ca", "au",
+  "xyz", "online", "site", "store", "blog", "tech", "news", "cloud", "page",
+  "sh", "gg", "fyi", "ly", "to", "ws",
+];
+const TLD_GROUP = COMMON_TLDS.join("|");
+const URL_REGEX = new RegExp(
+  `(?:https?:\\/\\/|www\\.)[^\\s<>'")\\]]+|\\b(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+(?:${TLD_GROUP})(?:\\/[^\\s<>'")\\]]*)?(?=[\\s.,;:!?)\\]<>'"]|$)`,
+  "gi"
+);
+
+function normalizeHref(url: string): string {
+  const trimmed = url.replace(/[.,;:!?]+$/, "");
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
 
 interface LinkDetectorProps {
   text: string;
@@ -33,7 +48,7 @@ export function LinkDetector({ text }: LinkDetectorProps) {
         ) : (
           <a
             key={part.key}
-            href={part.url}
+            href={normalizeHref(part.url)}
             target="_blank"
             rel="noopener noreferrer"
             className="text-primary underline underline-offset-2 hover:text-primary/80"

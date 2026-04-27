@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { motion } from "motion/react";
 import { format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRecentSpaces } from "@/hooks/use-space";
 import { useAuth } from "@/hooks/use-auth";
+import { fadeUp, listStagger, baseTransition } from "@/lib/animations";
 import { FileText, Paperclip, FolderOpen, CircleDashed, Lock, LockOpen } from "lucide-react";
 import {
   Dialog,
@@ -93,13 +95,20 @@ export function RecentSpacesGrid() {
             <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">No recently visited spaces</p>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <motion.div
+            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+            variants={listStagger}
+            initial="hidden"
+            animate="visible"
+          >
             {spaces.slice(0, GRID_LIMIT).map((space) => (
-              <Link key={space.id} href={`/space/${space.name}`}>
-                <SpaceCard space={space} showLock={showLock} />
-              </Link>
+              <motion.div key={space.id} variants={fadeUp} transition={baseTransition}>
+                <Link href={`/space/${space.name}`}>
+                  <SpaceCard space={space} showLock={showLock} />
+                </Link>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         )}
       </div>
 
