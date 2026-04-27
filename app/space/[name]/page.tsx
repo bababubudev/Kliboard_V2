@@ -61,6 +61,7 @@ import {
   Link,
   Check,
   X,
+  Loader2,
 } from "lucide-react";
 
 const MD_PATTERNS = [
@@ -196,15 +197,21 @@ export default function SpacePage() {
   }
 
 
+  const [isSyncing, setIsSyncing] = useState(false);
   async function handleSync() {
-    const { data: fresh } = await refetch();
-    if (fresh) {
-      setContent(fresh.content);
-      setDuration(fresh.duration);
-      setSyncedContent(fresh.content);
-      setSyncedDuration(fresh.duration);
+    setIsSyncing(true);
+    try {
+      const { data: fresh } = await refetch();
+      if (fresh) {
+        setContent(fresh.content);
+        setDuration(fresh.duration);
+        setSyncedContent(fresh.content);
+        setSyncedDuration(fresh.duration);
+      }
+      showStatus("Synced");
+    } finally {
+      setIsSyncing(false);
     }
-    showStatus("Synced");
   }
 
   async function handleCopy() {
@@ -522,9 +529,11 @@ export default function SpacePage() {
                     {space && (
                       <button
                         onClick={() => { handleSync(); setMenuOpen(false); }}
-                        className="mr-1 cursor-pointer whitespace-nowrap text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                        disabled={isSyncing}
+                        className="mr-1 flex cursor-pointer items-center gap-1 whitespace-nowrap text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        Sync
+                        {isSyncing && <Loader2 className="h-3 w-3 animate-spin" />}
+                        {isSyncing ? "Syncing…" : "Sync"}
                       </button>
                     )}
                   </div>
@@ -579,7 +588,9 @@ export default function SpacePage() {
               >
                 <span className="whitespace-nowrap text-xs font-medium uppercase tracking-widest">
                   {isSaving
-                    ? "saving..."
+                    ? batchUpload.isPending && batchUpload.progress.total > 0
+                      ? `uploading ${batchUpload.progress.completed}/${batchUpload.progress.total}...`
+                      : "saving..."
                     : isNewSpace
                       ? <>{`Save`}<span className="hidden sm:inline">&nbsp;Space</span>{` \u2192`}</>
                       : <>{`Update`}<span className="hidden sm:inline">&nbsp;Space</span>{` \u2192`}</>}
@@ -605,6 +616,7 @@ export default function SpacePage() {
             onRemovePending={handleRemovePending}
             uploading={batchUpload.isPending}
             full={fileSlotsFull}
+            progress={batchUpload.progress}
           />
         </div>
       </div>

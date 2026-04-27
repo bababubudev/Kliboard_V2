@@ -31,9 +31,10 @@ interface FileUploadProps {
   onRemovePending?: (id: string) => void;
   uploading?: boolean;
   full?: boolean;
+  progress?: { completed: number; total: number };
 }
 
-export function FileUpload({ onFilesSelected, maxFiles, pendingFiles = [], onRemovePending, uploading, full }: FileUploadProps) {
+export function FileUpload({ onFilesSelected, maxFiles, pendingFiles = [], onRemovePending, uploading, full, progress }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -106,9 +107,11 @@ export function FileUpload({ onFilesSelected, maxFiles, pendingFiles = [], onRem
         <div className="flex flex-1 flex-col">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              {pendingFiles.length} file{pendingFiles.length !== 1 && "s"} ready
+              {uploading && progress && progress.total > 0
+                ? `Uploading ${progress.completed} / ${progress.total}`
+                : `${pendingFiles.length} file${pendingFiles.length !== 1 ? "s" : ""} ready`}
             </p>
-            {!full && (
+            {!full && !uploading && (
               <button
                 type="button"
                 onClick={() => inputRef.current?.click()}
@@ -118,7 +121,17 @@ export function FileUpload({ onFilesSelected, maxFiles, pendingFiles = [], onRem
               </button>
             )}
           </div>
-          <div className="flex max-h-32 flex-col gap-1.5 overflow-y-auto">
+          {uploading && progress && progress.total > 0 && (
+            <div className="mb-3 h-1 overflow-hidden rounded-full bg-surface-container-high">
+              <div
+                className="h-full rounded-full bg-primary transition-[width] duration-200 ease-out"
+                style={{
+                  width: `${Math.min(100, (progress.completed / progress.total) * 100)}%`,
+                }}
+              />
+            </div>
+          )}
+          <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto">
             {pendingFiles.map(({ id, file }) => {
               const Icon = getFileTypeIcon(file.type);
               return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -32,6 +32,7 @@ import {
   Share2,
   Trash2,
   Eye,
+  Check,
   Loader2,
   EllipsisVertical,
 } from "lucide-react";
@@ -98,48 +99,33 @@ function getFileTypeIcon(mimeType: string) {
   return FileIcon;
 }
 
-async function handleDownload(file: FileRecord) {
+async function downloadFile(file: FileRecord) {
   const url = getFileUrl(file.storage_path);
-  try {
-    const res = await fetch(url);
-    const blob = await res.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = blobUrl;
-    a.download = file.filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(blobUrl);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Download failed";
-    toast.error(msg);
-  }
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Download failed (${res.status})`);
+  const blob = await res.blob();
+  const blobUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = blobUrl;
+  a.download = file.filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(blobUrl);
 }
 
-async function handleShare(file: FileRecord) {
+async function shareOrCopy(file: FileRecord): Promise<"shared" | "copied"> {
   const url = getFileUrl(file.storage_path);
   if (navigator.share) {
     try {
       await navigator.share({ title: file.filename, url });
+      return "shared";
     } catch (err) {
-      if ((err as Error).name !== "AbortError") {
-        await copyToClipboard(url);
-      }
+      if ((err as Error).name === "AbortError") return "shared";
     }
-  } else {
-    await copyToClipboard(url);
   }
-}
-
-async function copyToClipboard(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-    toast.success("Link copied");
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Copy failed";
-    toast.error(msg);
-  }
+  await navigator.clipboard.writeText(url);
+  return "copied";
 }
 
 function FileActionsMenu({
@@ -149,6 +135,9 @@ function FileActionsMenu({
   onDownload,
   onShare,
   onDelete,
+  isDeleting = false,
+  isDownloading = false,
+  isCopied = false,
 }: {
   file: FileRecord;
   canDelete: boolean;
@@ -156,15 +145,18 @@ function FileActionsMenu({
   onDownload: (file: FileRecord) => void;
   onShare: (file: FileRecord) => void;
   onDelete: (file: FileRecord) => void;
+  isDeleting?: boolean;
+  isDownloading?: boolean;
+  isCopied?: boolean;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
-  async function handleConfirmDelete() {
-    setDeleting(true);
-    await onDelete(file);
-    setDeleting(false);
-    setConfirmDelete(false);
+  useEffect(() => {
+    if (!isDeleting) setConfirmDelete(false);
+  }, [isDeleting]);
+
+  function handleConfirmDelete() {
+    onDelete(file);
   }
 
   return (
@@ -178,13 +170,25 @@ function FileActionsMenu({
             <Eye className="mr-2 h-3.5 w-3.5" />
             Open
           </DropdownMenuItem>
-          <DropdownMenuItem className="cursor-pointer" onClick={() => onDownload(file)}>
-            <Download className="mr-2 h-3.5 w-3.5" />
-            Download
+          <DropdownMenuItem
+            className="cursor-pointer"
+            disabled={isDownloading}
+            onClick={() => onDownload(file)}
+          >
+            {isDownloading ? (
+              <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-3.5 w-3.5" />
+            )}
+            {isDownloading ? "Downloading…" : "Download"}
           </DropdownMenuItem>
           <DropdownMenuItem className="cursor-pointer" onClick={() => onShare(file)}>
-            <Share2 className="mr-2 h-3.5 w-3.5" />
-            Share
+            {isCopied ? (
+              <Check className="mr-2 h-3.5 w-3.5 text-primary" />
+            ) : (
+              <Share2 className="mr-2 h-3.5 w-3.5" />
+            )}
+            {isCopied ? "Link copied" : "Share"}
           </DropdownMenuItem>
           {canDelete && (
             <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onClick={() => setConfirmDelete(true)}>
@@ -195,7 +199,7 @@ function FileActionsMenu({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <AlertDialog open={confirmDelete} onOpenChange={(open) => !deleting && setConfirmDelete(open)}>
+      <AlertDialog open={confirmDelete} onOpenChange={(open) => !isDeleting && setConfirmDelete(open)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete file</AlertDialogTitle>
@@ -204,14 +208,14 @@ function FileActionsMenu({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <button
               onClick={handleConfirmDelete}
-              disabled={deleting}
+              disabled={isDeleting}
               className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-destructive px-4 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
             >
-              {deleting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              {deleting ? "Deleting..." : "Delete"}
+              {isDeleting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {isDeleting ? "Deleting..." : "Delete"}
             </button>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -261,6 +265,36 @@ export function FileList({
   }, [pendingFiles, remoteFiles]);
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  async function handleShare(file: FileRecord) {
+    try {
+      const result = await shareOrCopy(file);
+      if (result === "copied") {
+        setCopiedId(file.id);
+        toast.success("Link copied");
+        setTimeout(() => {
+          setCopiedId((prev) => (prev === file.id ? null : prev));
+        }, 1500);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Copy failed";
+      toast.error(msg);
+    }
+  }
+
+  async function handleDownload(file: FileRecord) {
+    setDownloadingId(file.id);
+    try {
+      await downloadFile(file);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Download failed";
+      toast.error(msg);
+    } finally {
+      setDownloadingId(null);
+    }
+  }
 
   async function handleDeleteRemote(file: FileRecord) {
     setDeletingId(file.id);
@@ -360,7 +394,7 @@ export function FileList({
                 </p>
               </div>
               <div className={`transition-opacity ${isDeleting ? "pointer-events-none opacity-0" : "opacity-0 group-hover:opacity-100"}`}>
-                <FileActionsMenu file={file} canDelete={canDelete} onOpen={handleOpenRemote} onDownload={handleDownload} onShare={handleShare} onDelete={handleDeleteRemote} />
+                <FileActionsMenu file={file} canDelete={canDelete} onOpen={handleOpenRemote} onDownload={handleDownload} onShare={handleShare} onDelete={handleDeleteRemote} isDeleting={deletingId === file.id} isDownloading={downloadingId === file.id} isCopied={copiedId === file.id} />
               </div>
             </div>
           );
@@ -483,7 +517,7 @@ export function FileList({
                 })}
               </p>
               <div className="absolute top-2 right-2" onClick={(e) => e.stopPropagation()}>
-                <FileActionsMenu file={file} canDelete={canDelete} onOpen={handleOpenRemote} onDownload={handleDownload} onShare={handleShare} onDelete={handleDeleteRemote} />
+                <FileActionsMenu file={file} canDelete={canDelete} onOpen={handleOpenRemote} onDownload={handleDownload} onShare={handleShare} onDelete={handleDeleteRemote} isDeleting={deletingId === file.id} isDownloading={downloadingId === file.id} isCopied={copiedId === file.id} />
               </div>
             </div>
           </div>

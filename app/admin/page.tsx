@@ -19,6 +19,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
 import {
   useAdminStats,
@@ -36,6 +42,8 @@ import {
   Search,
   Trash2,
   ExternalLink,
+  MoreVertical,
+  Loader2,
   ChevronLeft,
   ChevronRight,
   Shield,
@@ -195,16 +203,30 @@ export default function AdminPage() {
                 className="pl-10"
               />
             </div>
-            <Button variant="outline" onClick={handleSearch}>
+            <Button
+              variant="outline"
+              onClick={handleSearch}
+              disabled={spaces.isFetching}
+            >
+              {spaces.isFetching && !spaces.isLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
               Search
             </Button>
             {selectedSpaces.size > 0 && (
               <Button
                 variant="destructive"
+                disabled={deleteSpaces.isPending}
                 onClick={() => setDeleteTarget(Array.from(selectedSpaces))}
               >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete ({selectedSpaces.size})
+                {deleteSpaces.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="mr-2 h-4 w-4" />
+                )}
+                {deleteSpaces.isPending
+                  ? `Deleting ${selectedSpaces.size}…`
+                  : `Delete (${selectedSpaces.size})`}
               </Button>
             )}
           </div>
@@ -217,7 +239,9 @@ export default function AdminPage() {
             </div>
           ) : (
             <>
-              <div className="space-y-1">
+              <div
+                className={`space-y-1 transition-opacity ${spaces.isFetching ? "pointer-events-none opacity-60" : ""}`}
+              >
                 {spaces.data?.spaces.map((space, index) => {
                   const expired =
                     space.duration !== 0 &&
@@ -239,7 +263,7 @@ export default function AdminPage() {
                         className="h-4 w-4 shrink-0 rounded accent-primary"
                       />
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                           <Link
                             href={`/space/${space.name}`}
                             className="font-heading font-medium tracking-tight hover:text-primary"
@@ -269,31 +293,38 @@ export default function AdminPage() {
                             <Badge variant="destructive">Expired</Badge>
                           )}
                         </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(space.updated_at), {
+                            addSuffix: true,
+                          })}
+                        </p>
                         <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
                           {space.content || "(empty)"}
                         </p>
                       </div>
-                      <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
-                        <span>
-                          {formatDistanceToNow(new Date(space.updated_at), {
-                            addSuffix: true,
-                          })}
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          nativeButton={false}
-                          render={<Link href={`/space/${space.name}`} />}
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setDeleteTarget([space.id])}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                      <div className="shrink-0">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-container-high hover:text-foreground">
+                            <MoreVertical className="h-4 w-4" />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              className="cursor-pointer"
+                              onClick={() => router.push(`/space/${space.name}`)}
+                            >
+                              <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                              Open space
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              className="cursor-pointer"
+                              onClick={() => setDeleteTarget([space.id])}
+                            >
+                              <Trash2 className="mr-2 h-3.5 w-3.5" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   );
@@ -304,19 +335,23 @@ export default function AdminPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    disabled={spacePage <= 1}
+                    disabled={spacePage <= 1 || spaces.isFetching}
                     onClick={() => setSpacePage((p) => p - 1)}
                   >
                     <ChevronLeft className="mr-1 h-4 w-4" />
                     Prev
                   </Button>
                   <span className="text-sm text-muted-foreground">
-                    {spacePage} / {spaces.data.totalPages}
+                    {spaces.isFetching && !spaces.isLoading ? (
+                      <Loader2 className="inline h-3 w-3 animate-spin" />
+                    ) : (
+                      `${spacePage} / ${spaces.data.totalPages}`
+                    )}
                   </span>
                   <Button
                     variant="outline"
                     size="sm"
-                    disabled={spacePage >= spaces.data.totalPages}
+                    disabled={spacePage >= spaces.data.totalPages || spaces.isFetching}
                     onClick={() => setSpacePage((p) => p + 1)}
                   >
                     Next
@@ -338,7 +373,9 @@ export default function AdminPage() {
               ))}
             </div>
           ) : (
-            <div className="space-y-1">
+            <div
+              className={`space-y-1 transition-opacity ${users.isFetching ? "opacity-60" : ""}`}
+            >
               {users.data?.map((u, index) => (
                 <div
                   key={u.id}
@@ -381,7 +418,10 @@ export default function AdminPage() {
 
       <AlertDialog
         open={Boolean(deleteTarget)}
-        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        onOpenChange={(open) => {
+          if (deleteSpaces.isPending) return;
+          if (!open) setDeleteTarget(null);
+        }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -392,12 +432,18 @@ export default function AdminPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteSpaces.isPending}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleBulkDelete}
+              disabled={deleteSpaces.isPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              {deleteSpaces.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              {deleteSpaces.isPending ? "Deleting…" : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

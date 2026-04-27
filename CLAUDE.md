@@ -74,6 +74,7 @@ Treat this file as living documentation. When the user shares a notable rule, co
 - **Toast notifications:** Use Sonner (shadcn/ui integration), not custom components
 - **Icons:** Use Lucide React, not hand-rolled SVGs
 - **Loading states:** Use shadcn/ui Skeleton components, not "Loading..." text
+- **Async feedback is mandatory.** Every user-triggered async action (save, upload, delete, fetch-to-update) must show progress: a determinate progress bar when measurable (uploads, batch ops), an inline spinner or disabled button state otherwise. No silent in-flight operations
 - **Polling over WebSockets.** TanStack Query with 5-second refetchInterval
 - **Lazy deletion** as primary expiration strategy, Vercel Cron as backup
 - **File uploads** go directly from client to Supabase Storage (bypasses Vercel 4.5MB limit)

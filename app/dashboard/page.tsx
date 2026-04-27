@@ -22,7 +22,7 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 import { useDeleteSpace } from "@/hooks/use-space";
 import { createClient } from "@/lib/supabase/client";
-import { Trash2, ExternalLink, Clock, Lock, LockOpen } from "lucide-react";
+import { Trash2, ExternalLink, Clock, Lock, LockOpen, Loader2 } from "lucide-react";
 
 interface UserSpace {
   id: string;
@@ -164,7 +164,13 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (deleteSpace.isPending) return;
+          if (!open) setDeleteTarget(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete space</AlertDialogTitle>
@@ -173,9 +179,14 @@ export default function DashboardPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
+            <AlertDialogCancel disabled={deleteSpace.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleteSpace.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteSpace.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {deleteSpace.isPending ? "Deleting…" : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
