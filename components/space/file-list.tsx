@@ -472,7 +472,7 @@ export function FileList({
                     })}
                   </p>
                 </div>
-                <div className={`transition-opacity ${isDeleting ? "pointer-events-none opacity-0" : "opacity-0 group-hover:opacity-100"}`}>
+                <div className={`transition-opacity ${isDeleting ? "pointer-events-none opacity-0" : "opacity-100 md:opacity-0 md:group-hover:opacity-100"}`}>
                   <FileActionsMenu file={file} canDelete={canDelete} onOpen={handleOpenRemote} onDownload={handleDownload} onShare={handleShare} onDelete={handleDeleteRemote} isDeleting={deletingId === file.id} isDownloading={downloadingId === file.id} isCopied={copiedId === file.id} />
                 </div>
               </motion.div>
@@ -533,7 +533,7 @@ export function FileList({
                 {!uploading && (
                   <button
                     onClick={() => onRemovePending(id)}
-                    className="absolute top-2 right-2 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition-opacity hover:bg-black/70 group-hover:opacity-100"
+                    className="absolute top-2 right-2 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-black/50 text-white opacity-100 transition-opacity hover:bg-black/70 md:h-5 md:w-5 md:opacity-0 md:group-hover:opacity-100"
                   >
                     <X className="h-3 w-3" />
                   </button>

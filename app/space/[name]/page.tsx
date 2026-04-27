@@ -408,7 +408,7 @@ export default function SpacePage() {
           </div>
           <Skeleton className="h-14 w-40 rounded-lg" />
         </div>
-        <div className="mb-10 grid gap-5 lg:grid-cols-[1fr_320px]">
+        <div className="mb-10 grid gap-5 md:grid-cols-[1fr_320px]">
           <div className="rounded-lg bg-surface-container-low p-6 ring-1 ring-ghost-border">
             <div className="mb-4 flex items-center gap-2">
               <Skeleton className="h-3.5 w-3.5 rounded" />
@@ -510,7 +510,7 @@ export default function SpacePage() {
         </div>
       </div>
 
-      <div className="mb-10 grid gap-5 lg:grid-cols-[1fr_320px]">
+      <div className="mb-10 grid gap-5 md:grid-cols-[1fr_320px]">
         <div
           className="relative flex min-w-0 flex-col gap-2 overflow-hidden rounded-lg bg-surface-container-low p-6 ring-1 ring-ghost-border transition-shadow focus-within:ring-primary/30"
           onClick={(e) => {
@@ -586,7 +586,7 @@ export default function SpacePage() {
             </div>
           </div>
           {!canModify && !isNewSpace && contentIsMarkdown ? (
-            <div className="h-48 overflow-y-auto">
+            <div className="min-h-48 max-h-[60dvh] overflow-y-auto">
               <Suspense fallback={<Skeleton className="h-full w-full" />}>
                 <MarkdownRenderer content={content} />
               </Suspense>
@@ -594,7 +594,7 @@ export default function SpacePage() {
           ) : (
             <Textarea
               ref={textareaRef}
-              className="h-48 resize-none border-0 bg-transparent px-0 py-0 font-heading text-sm shadow-none field-sizing-fixed overflow-y-auto break-all placeholder:text-muted-foreground focus-visible:ring-0"
+              className="min-h-48 max-h-[60dvh] resize-none border-0 bg-transparent px-0 py-0 font-heading text-sm shadow-none field-sizing-content overflow-y-auto break-all placeholder:text-muted-foreground focus-visible:ring-0"
               placeholder="Start typing here..."
               value={content}
               onChange={(e) => canModify && setContent(e.target.value)}
@@ -697,7 +697,7 @@ export default function SpacePage() {
       }
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent showCloseButton={false} className="sm:max-w-3xl max-h-[85vh] flex flex-col">
+        <DialogContent showCloseButton={false} className="sm:max-w-3xl max-h-[85dvh] flex flex-col">
           <div className="flex items-center justify-between gap-4">
             <DialogTitle>{space?.name ?? decodeURIComponent(name)}</DialogTitle>
             <div className="flex items-center gap-2">

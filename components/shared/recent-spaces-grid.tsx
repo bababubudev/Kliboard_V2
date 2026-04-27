@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRecentSpaces } from "@/hooks/use-space";
 import { useAuth } from "@/hooks/use-auth";
-import { fadeUp, listStagger, baseTransition } from "@/lib/animations";
+import { fadeUp, baseTransition } from "@/lib/animations";
 import { FileText, Paperclip, FolderOpen, CircleDashed, Lock, LockOpen } from "lucide-react";
 import {
   Dialog,
@@ -78,6 +78,7 @@ export function RecentSpacesGrid() {
   const { user } = useAuth();
   const showLock = Boolean(user);
   const [open, setOpen] = useState(false);
+  const reduceMotion = useReducedMotion();
 
   const hasMore = !isLoading && spaces && spaces.length > GRID_LIMIT;
 
@@ -95,20 +96,21 @@ export function RecentSpacesGrid() {
             <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">No recently visited spaces</p>
           </div>
         ) : (
-          <motion.div
-            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-            variants={listStagger}
-            initial="hidden"
-            animate="visible"
-          >
-            {spaces.slice(0, GRID_LIMIT).map((space) => (
-              <motion.div key={space.id} variants={fadeUp} transition={baseTransition}>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {spaces.slice(0, GRID_LIMIT).map((space, index) => (
+              <motion.div
+                key={space.id}
+                variants={fadeUp}
+                initial={reduceMotion ? false : "hidden"}
+                animate="visible"
+                transition={{ ...baseTransition, delay: reduceMotion ? 0 : index * 0.03 }}
+              >
                 <Link href={`/space/${space.name}`}>
                   <SpaceCard space={space} showLock={showLock} />
                 </Link>
               </motion.div>
             ))}
-          </motion.div>
+          </div>
         )}
       </div>
 
@@ -124,7 +126,7 @@ export function RecentSpacesGrid() {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="flex max-h-[70vh] flex-col overflow-hidden sm:max-w-md">
+        <DialogContent className="flex max-h-[70dvh] flex-col overflow-hidden sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Recent spaces</DialogTitle>
           </DialogHeader>

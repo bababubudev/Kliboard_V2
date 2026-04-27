@@ -1,10 +1,11 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { Providers } from "@/components/providers";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
+import { ServiceWorkerRegister } from "@/components/layout/service-worker-register";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 const spaceGrotesk = Space_Grotesk({
@@ -34,18 +35,19 @@ export const metadata: Metadata = {
     "ephemeral",
     "auto-delete",
     "kliboard",
+    "kliboard-v2",
   ],
   openGraph: {
-    title: "Kliboard",
+    title: "Kliboard.V2",
     description:
       "Temporary text clipboard. Create, share, and auto-expire — no signup required.",
-    siteName: "Kliboard",
+    siteName: "Kliboard.V2",
     type: "website",
     locale: "en_US",
   },
   twitter: {
     card: "summary",
-    title: "Kliboard",
+    title: "Kliboard.V2",
     description:
       "Temporary text clipboard. Create, share, and auto-expire — no signup required.",
   },
@@ -57,6 +59,21 @@ export const metadata: Metadata = {
       follow: true,
     },
   },
+  appleWebApp: {
+    capable: true,
+    title: "Kliboard.V2",
+    statusBarStyle: "black-translucent",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f0f0ee" },
+    { media: "(prefers-color-scheme: dark)", color: "#0d0f0f" },
+  ],
 };
 
 export default function RootLayout({
@@ -89,13 +106,14 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-screen bg-background font-sans antialiased">
+      <body className="min-h-dvh bg-background font-sans antialiased">
         <Providers>
-          <div className="flex min-h-screen flex-col">
+          <div className="flex min-h-dvh flex-col">
             <Navbar />
             <main className="flex-1">{children}</main>
             <Footer />
           </div>
+          <ServiceWorkerRegister />
         </Providers>
       </body>
     </html>

@@ -9,15 +9,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   return {
     title: name,
-    description: `View and edit the "${name}" space on Kliboard — temporary, shareable text clipboard.`,
+    description: `View and edit the "${name}" space on Kliboard V2.0 — temporary, shareable text clipboard.`,
     openGraph: {
-      title: `${name} | Kliboard`,
+      title: `${name} | Kliboard.V2`,
       description: `View and edit the "${name}" space — temporary, shareable text clipboard.`,
       type: "website",
     },
     twitter: {
       card: "summary",
-      title: `${name} | Kliboard`,
+      title: `${name} | Kliboard.V2`,
       description: `View and edit the "${name}" space — temporary, shareable text clipboard.`,
     },
   };

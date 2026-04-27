@@ -1,15 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { Menu } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function Navbar() {
   const { user, loading, isAdmin } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
 
   async function handleLogout() {
     const supabase = createClient();
@@ -22,11 +27,8 @@ export function Navbar() {
     router.refresh();
   }
 
-  const spaceMatch = pathname.match(/^\/space\/(.+)$/);
-  const spaceName = spaceMatch?.[1];
-
   return (
-    <header className="sticky top-0 z-50 w-full bg-surface-dim/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 w-full bg-surface-dim/80 backdrop-blur-xl pt-[env(safe-area-inset-top)]">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
         <Link
           href="/"
@@ -34,45 +36,75 @@ export function Navbar() {
         >
           kliboard 2.0
         </Link>
-        <div className="flex items-center gap-5">
-          {!loading && user && (
-            <>
+
+        {!loading && user && (
+          <div className="hidden items-center gap-5 sm:flex">
+            <Link
+              href="/dashboard"
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              my spaces
+            </Link>
+            {isAdmin && (
               <Link
-                href="/dashboard"
+                href="/admin"
                 className="text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
-                my spaces
+                admin
               </Link>
-              {isAdmin && (
-                <Link
-                  href="/admin"
-                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            )}
+            <button
+              onClick={handleLogout}
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              logout
+            </button>
+          </div>
+        )}
+
+        {!loading && !user && (
+          <Link
+            href="/login"
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            login
+          </Link>
+        )}
+
+        {!loading && user && (
+          <div className="sm:hidden">
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                aria-label="Open menu"
+                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-container-high hover:text-foreground"
+              >
+                <Menu className="h-4 w-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onClick={() => router.push("/dashboard")}
                 >
-                  admin
-                </Link>
-              )}
-            </>
-          )}
-          {!loading && (
-            <>
-              {user ? (
-                <button
+                  my spaces
+                </DropdownMenuItem>
+                {isAdmin && (
+                  <DropdownMenuItem
+                    className="cursor-pointer"
+                    onClick={() => router.push("/admin")}
+                  >
+                    admin
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem
                   onClick={handleLogout}
-                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                  className="cursor-pointer"
                 >
                   logout
-                </button>
-              ) : (
-                <Link
-                  href="/login"
-                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  login
-                </Link>
-              )}
-            </>
-          )}
-        </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
       </div>
     </header>
   );
