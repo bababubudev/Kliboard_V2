@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef, lazy, Suspense } from "react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
+import { format, isToday, isTomorrow } from "date-fns";
 
 function formatCountdown(expiresAt: string): string {
   const remaining = new Date(expiresAt).getTime() - Date.now();
@@ -398,7 +399,22 @@ export function SpacePageContent({ name, isAdmin: isAdminMode }: SpacePageConten
 
       setSyncedContent(content);
       setSyncedDuration(duration);
-      toast.success("Space saved");
+
+      let dateInfo: string;
+      if (duration === 0) {
+        dateInfo = "forever";
+      } else {
+        const expiresAt = new Date(Date.now() + duration * 60_000);
+        const time = format(expiresAt, "HH:mm");
+        if (isToday(expiresAt)) {
+          dateInfo = `until today at ${time}`;
+        } else if (isTomorrow(expiresAt)) {
+          dateInfo = `until tomorrow at ${time}`;
+        } else {
+          dateInfo = `until ${format(expiresAt, "d MMMM")} at ${time}`;
+        }
+      }
+      toast.success(`Space saved ${dateInfo}`);
     } catch (err) {
       const status = (err as Error & { status?: number }).status;
       if (status === 409) {

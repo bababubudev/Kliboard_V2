@@ -2,16 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Menu } from "lucide-react";
+import { LayoutGrid, Shield, LogOut } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function Navbar() {
   const { user, loading } = useAuth();
@@ -64,6 +59,7 @@ export function Navbar() {
                 admin
               </Link>
             )}
+            <span className="h-3.5 w-px bg-muted-foreground/25" />
             <button
               onClick={handleLogout}
               className="text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -83,37 +79,40 @@ export function Navbar() {
         )}
 
         {!loading && user && (
-          <div className="sm:hidden">
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                aria-label="Open menu"
-                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-container-high hover:text-foreground"
+          <div className="flex items-center gap-3 sm:hidden">
+            <Tooltip>
+              <TooltipTrigger
+                render={<Link href="/dashboard" />}
+                className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
+                aria-label="My spaces"
               >
-                <Menu className="h-4 w-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  className="cursor-pointer"
-                  onClick={() => router.push("/dashboard")}
+                <LayoutGrid className="h-4 w-4" />
+              </TooltipTrigger>
+              <TooltipContent>my spaces</TooltipContent>
+            </Tooltip>
+            {isAdmin && (
+              <Tooltip>
+                <TooltipTrigger
+                  render={<Link href="/admin" />}
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
+                  aria-label="Admin"
                 >
-                  my spaces
-                </DropdownMenuItem>
-                {isAdmin && (
-                  <DropdownMenuItem
-                    className="cursor-pointer"
-                    onClick={() => router.push("/admin")}
-                  >
-                    admin
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem
-                  onClick={handleLogout}
-                  className="cursor-pointer"
-                >
-                  logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  <Shield className="h-4 w-4" />
+                </TooltipTrigger>
+                <TooltipContent>admin</TooltipContent>
+              </Tooltip>
+            )}
+            <span className="h-3.5 w-px bg-muted-foreground/25" />
+            <Tooltip>
+              <TooltipTrigger
+                onClick={handleLogout}
+                className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
+                aria-label="Logout"
+              >
+                <LogOut className="h-4 w-4" />
+              </TooltipTrigger>
+              <TooltipContent>logout</TooltipContent>
+            </Tooltip>
           </div>
         )}
       </div>
