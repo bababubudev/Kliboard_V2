@@ -67,7 +67,7 @@ export function Navbar() {
             href="/login"
             className="text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
-            login
+            sign in
           </Link>
         )}
 
