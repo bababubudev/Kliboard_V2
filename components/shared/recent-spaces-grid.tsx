@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
 import { format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRecentSpaces } from "@/hooks/use-space";
@@ -78,8 +78,6 @@ export function RecentSpacesGrid() {
   const { user } = useAuth();
   const showLock = Boolean(user);
   const [open, setOpen] = useState(false);
-  const reduceMotion = useReducedMotion();
-
   const hasMore = !isLoading && spaces && spaces.length > GRID_LIMIT;
 
   return (
@@ -101,9 +99,9 @@ export function RecentSpacesGrid() {
               <motion.div
                 key={space.id}
                 variants={fadeUp}
-                initial={reduceMotion ? false : "hidden"}
+                initial="hidden"
                 animate="visible"
-                transition={{ ...baseTransition, delay: reduceMotion ? 0 : index * 0.03 }}
+                transition={{ ...baseTransition, delay: index * 0.03 }}
               >
                 <Link href={`/space/${space.name}`}>
                   <SpaceCard space={space} showLock={showLock} />

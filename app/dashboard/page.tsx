@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { AnimatePresence, motion } from "motion/react";
 import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -22,6 +23,13 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 import { useDeleteSpace } from "@/hooks/use-space";
 import { createClient } from "@/lib/supabase/client";
+import {
+  fadeUp,
+  fadeIn,
+  staggerContainer,
+  screenFade,
+  baseTransition,
+} from "@/lib/animations";
 import { Trash2, ExternalLink, Clock, Lock, LockOpen, Loader2 } from "lucide-react";
 
 interface UserSpace {
@@ -78,11 +86,16 @@ export default function DashboardPage() {
 
   if (authLoading) {
     return (
-      <div className="mx-auto max-w-6xl space-y-4 px-6 py-8">
+      <motion.div
+        variants={screenFade}
+        initial="hidden"
+        animate="visible"
+        className="mx-auto max-w-6xl space-y-4 px-6 py-8"
+      >
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-16 w-full" />
         <Skeleton className="h-16 w-full" />
-      </div>
+      </motion.div>
     );
   }
 
@@ -90,79 +103,121 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-8">
-      <h1 className="mb-8 font-heading text-2xl font-medium tracking-tight">My Spaces</h1>
+      <motion.h1
+        variants={fadeUp}
+        initial="hidden"
+        animate="visible"
+        transition={baseTransition}
+        className="mb-8 font-heading text-2xl font-medium tracking-tight"
+      >
+        My Spaces
+      </motion.h1>
 
-      {isLoading ? (
-        <div className="space-y-4">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-20 w-full rounded-lg" />
-          ))}
-        </div>
-      ) : !spaces?.length ? (
-        <div className="py-16 text-center">
-          <p className="text-muted-foreground">You haven&apos;t created any spaces yet.</p>
-          <Button className="mt-6" nativeButton={false} render={<Link href="/" />}>
-            Create a Space
-          </Button>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {spaces.map((space, index) => {
-            const expired = new Date(space.expires_at) < new Date();
-            return (
-              <div
-                key={space.id}
-                className={`group flex items-center justify-between rounded-lg p-5 transition-colors hover:bg-surface-container ${
-                  index % 2 === 0 ? "bg-surface-container-low" : "bg-surface-dim"
-                }`}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <Link
-                      href={`/space/${space.name}`}
-                      className="font-heading font-medium tracking-tight hover:text-primary"
-                    >
-                      {space.name}
-                    </Link>
-                    <Badge variant="secondary">
-                      {space.is_locked ? (
-                        <><Lock className="mr-1 h-3 w-3" />Locked</>
-                      ) : (
-                        <><LockOpen className="mr-1 h-3 w-3" />Unlocked</>
-                      )}
-                    </Badge>
-                    {expired && (
-                      <Badge variant="destructive">Expired</Badge>
-                    )}
-                  </div>
-                  <p className="mt-1.5 truncate font-mono text-sm text-muted-foreground">
-                    {space.content}
-                  </p>
-                  <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    {expired
-                      ? "Expired"
-                      : `Expires ${formatDistanceToNow(new Date(space.expires_at), { addSuffix: true })}`}
-                  </div>
-                </div>
-                <div className="ml-4 flex shrink-0 gap-1">
-                  <Button variant="ghost" size="icon" nativeButton={false} render={<Link href={`/space/${space.name}`} />}>
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setDeleteTarget(space.name)}
-                    disabled={deleteSpace.isPending}
+      <AnimatePresence mode="wait">
+        {isLoading ? (
+          <motion.div
+            key="loading"
+            variants={staggerContainer}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="space-y-4"
+          >
+            {Array.from({ length: 3 }).map((_, i) => (
+              <motion.div key={i} variants={fadeUp} transition={baseTransition}>
+                <Skeleton className="h-20 w-full rounded-lg" />
+              </motion.div>
+            ))}
+          </motion.div>
+        ) : !spaces?.length ? (
+          <motion.div
+            key="empty"
+            variants={fadeIn}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            transition={baseTransition}
+            className="py-16 text-center"
+          >
+            <p className="text-muted-foreground">You haven&apos;t created any spaces yet.</p>
+            <Button className="mt-6" nativeButton={false} render={<Link href="/" />}>
+              Create a Space
+            </Button>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="list"
+            variants={staggerContainer}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="space-y-2"
+          >
+            <AnimatePresence>
+              {spaces.map((space, index) => {
+                const expired = new Date(space.expires_at) < new Date();
+                return (
+                  <motion.div
+                    key={space.id}
+                    variants={fadeUp}
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                    transition={{ ...baseTransition, delay: index * 0.03 }}
+                    layout
+                    className={`group flex items-center justify-between rounded-lg p-5 transition-colors hover:bg-surface-container ${
+                      index % 2 === 0 ? "bg-surface-container-low" : "bg-surface-dim"
+                    }`}
                   >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={`/space/${space.name}`}
+                          className="font-heading font-medium tracking-tight hover:text-primary"
+                        >
+                          {space.name}
+                        </Link>
+                        <Badge variant="secondary">
+                          {space.is_locked ? (
+                            <><Lock className="mr-1 h-3 w-3" />Locked</>
+                          ) : (
+                            <><LockOpen className="mr-1 h-3 w-3" />Unlocked</>
+                          )}
+                        </Badge>
+                        {expired && (
+                          <Badge variant="destructive">Expired</Badge>
+                        )}
+                      </div>
+                      <p className="mt-1.5 truncate font-mono text-sm text-muted-foreground">
+                        {space.content}
+                      </p>
+                      <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        {expired
+                          ? "Expired"
+                          : `Expires ${formatDistanceToNow(new Date(space.expires_at), { addSuffix: true })}`}
+                      </div>
+                    </div>
+                    <div className="ml-4 flex shrink-0 gap-1">
+                      <Button variant="ghost" size="icon" nativeButton={false} render={<Link href={`/space/${space.name}`} />}>
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setDeleteTarget(space.name)}
+                        disabled={deleteSpace.isPending}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AlertDialog
         open={Boolean(deleteTarget)}

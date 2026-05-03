@@ -6,6 +6,7 @@ export const DURATION = {
   fast: 0.15,
   base: 0.2,
   slow: 0.25,
+  medium: 0.35,
 } as const;
 
 export const baseTransition: Transition = {
@@ -42,4 +43,36 @@ export const listStagger: Variants = {
   visible: {
     transition: { staggerChildren: 0.03, delayChildren: 0.02 },
   },
+};
+
+export const scaleReveal: Variants = {
+  hidden: { opacity: 0, scale: 0.97 },
+  visible: { opacity: 1, scale: 1 },
+  exit: { opacity: 0, scale: 0.97 },
+};
+
+export const staggerContainer: Variants = {
+  hidden: {},
+  visible: {
+    transition: { staggerChildren: 0.05, delayChildren: 0.02 },
+  },
+  exit: {},
+};
+
+export const screenFade: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: DURATION.slow, ease: EASE_OUT } },
+  exit: { opacity: 0, transition: { duration: DURATION.fast, ease: EASE_OUT } },
+};
+
+export const switchVariants: Variants = {
+  hidden: { opacity: 0, scale: 0.95 },
+  visible: { opacity: 1, scale: 1 },
+  exit: { opacity: 0, scale: 0.95 },
+};
+
+export const iconSwap: Variants = {
+  hidden: { opacity: 0, scale: 0.5, rotate: -90 },
+  visible: { opacity: 1, scale: 1, rotate: 0 },
+  exit: { opacity: 0, scale: 0.5, rotate: 90 },
 };

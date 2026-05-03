@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef, lazy, Suspense } from "react";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
+import { AnimatePresence, motion } from "motion/react";
 
 function formatCountdown(expiresAt: string): string {
   const remaining = new Date(expiresAt).getTime() - Date.now();
@@ -49,6 +50,17 @@ import {
 import { DeletionCountdown } from "@/components/space/deletion-countdown";
 import { DetectedLinks } from "@/components/space/detected-links";
 import { MAX_FILES_PER_SPACE } from "@/lib/constants";
+import {
+  fadeUp,
+  fadeIn,
+  staggerContainer,
+  screenFade,
+  switchVariants,
+  iconSwap,
+  baseTransition,
+  EASE_OUT,
+  DURATION,
+} from "@/lib/animations";
 import {
   NotepadText,
   LayoutGrid,
@@ -398,303 +410,419 @@ export default function SpacePage() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="mx-auto max-w-6xl px-6 py-8">
-        <div className="mb-10 flex items-center justify-between">
-          <div>
-            <Skeleton className="mb-1.5 h-3 w-20" />
-            <Skeleton className="h-9 w-40" />
-          </div>
-          <Skeleton className="h-14 w-40 rounded-lg" />
-        </div>
-        <div className="mb-10 grid gap-5 md:grid-cols-[1fr_320px]">
-          <div className="rounded-lg bg-surface-container-low p-6 ring-1 ring-ghost-border">
-            <div className="mb-4 flex items-center gap-2">
-              <Skeleton className="h-3.5 w-3.5 rounded" />
-              <Skeleton className="h-4 w-20" />
-            </div>
-            <div className="space-y-2.5">
-              <Skeleton className="h-3 w-full" />
-              <Skeleton className="h-3 w-4/5" />
-              <Skeleton className="h-3 w-3/5" />
-            </div>
-            <div className="mt-32 flex justify-end">
-              <Skeleton className="h-11 w-40 rounded-sm" />
-            </div>
-          </div>
-          <Skeleton className="h-full min-h-50 rounded-lg" />
-        </div>
-        <div>
-          <div className="mb-5 flex items-center justify-between">
-            <Skeleton className="h-6 w-32" />
-            <Skeleton className="h-8 w-16 rounded-md" />
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="flex flex-col overflow-hidden rounded-lg">
-                <Skeleton className="aspect-square" />
-                <div className="space-y-1.5 p-3">
-                  <Skeleton className="h-3 w-3/4" />
-                  <Skeleton className="h-2 w-1/2" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error && !isNewSpace) {
-    return (
-      <div className="mx-auto max-w-6xl px-6 py-16 text-center">
-        <p className="text-sm text-muted-foreground">Something went wrong</p>
-      </div>
-    );
-  }
-
   const existingFileCount = remoteFiles?.length ?? 0;
   const totalFileCount = existingFileCount + pendingFiles.length;
   const fileSlotsFull = totalFileCount >= MAX_FILES_PER_SPACE;
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-8">
-      <div className="mb-10 flex items-start justify-between gap-4">
-        <div className="relative min-w-0 pt-2">
-          {user && space ? (
-            canToggleLock ? (
-              <button
-                onClick={handleToggleLock}
-                disabled={toggleLock.isPending}
-                className="flex cursor-pointer items-center text-[10px] uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground hover:underline disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isLocked ? <Lock className="h-2.5 w-2.5" /> : <LockOpen className="h-2.5 w-2.5" />}
-                &nbsp;
-                {isLocked ? "Locked" : "Unlocked"}<span className="hidden sm:inline">&nbsp;Space</span>
-              </button>
-            ) : (
-              <p className="flex items-center text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                {isLocked ? <Lock className="h-2.5 w-2.5" /> : <LockOpen className="h-2.5 w-2.5" />}
-                &nbsp;
-                {isLocked ? "Locked" : "Unlocked"}<span className="hidden sm:inline">&nbsp;Space</span>
-              </p>
-            )
-          ) : (
-            <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-              Space
-            </p>
-          )}
-          <h1
-            ref={nameRef}
-            onClick={() => nameClipped && setNameExpanded((v) => !v)}
-            className={`truncate font-heading text-3xl font-medium tracking-tight ${nameClipped ? "cursor-pointer" : ""}`}
+      <AnimatePresence mode="wait">
+        {isLoading ? (
+          <motion.div
+            key="skeleton"
+            variants={screenFade}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
           >
-            {decodeURIComponent(name)}
-          </h1>
-          {nameClipped && nameExpanded && (
-            <p className="absolute left-0 z-10 mt-1 w-full break-all rounded-md bg-surface-container-high px-3 py-2 text-sm text-foreground shadow-md">
-              {decodeURIComponent(name)}
-            </p>
-          )}
-        </div>
-        <div className="flex shrink-0 items-stretch overflow-hidden rounded-lg bg-surface-container-low">
-          <DeletionCountdown
-            countdown={countdown}
-            isSaved={Boolean(space)}
-            duration={duration}
-            onDurationChange={canModify ? setDuration : undefined}
-            isAdmin={userIsAdmin}
-            isAnon={isAnon}
-          />
-        </div>
-      </div>
-
-      <div className="mb-10 grid gap-5 md:grid-cols-[1fr_320px]">
-        <div
-          className="relative flex min-w-0 flex-col gap-2 overflow-hidden rounded-lg bg-surface-container-low p-6 ring-1 ring-ghost-border transition-shadow focus-within:ring-primary/30"
-          onClick={(e) => {
-            if (canModify && !(e.target as HTMLElement).closest("button")) {
-              textareaRef.current?.focus();
-            }
-          }}
-        >
-          <div className="mb-1.5 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <NotebookPen className="h-3.5 w-3.5 text-muted-foreground" />
-              <p className="font-heading text-sm font-medium"><span className="hidden sm:inline">Add </span>Note</p>
-            </div>
-            <div className="flex items-center gap-2">
-              {statusText && !menuOpen && (
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                  {statusText}
-                </span>
-              )}
-              {space && (
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(window.location.href);
-                    toast.success("Link copied to clipboard");
-                    setShareCopied(true);
-                    clearTimeout(shareTimeout.current);
-                    shareTimeout.current = setTimeout(() => setShareCopied(false), 2000);
-                  }}
-                  className={`relative flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-surface-container-high hover:text-foreground ${menuOpen ? "pointer-events-none hidden" : ""}`}
-                >
-                  <Link className={`h-3.5 w-3.5 transition-all duration-200 ${shareCopied ? "scale-0 opacity-0" : "scale-100 opacity-100"}`} />
-                  <Check className={`absolute h-3.5 w-3.5 text-primary transition-all duration-200 ${shareCopied ? "scale-100 opacity-100" : "scale-0 opacity-0"}`} />
-                </button>
-              )}
-              {(content || space) && (
-                <div className="flex items-center">
-                  <div className={`flex items-center gap-3 overflow-hidden transition-all duration-200 ease-out ${menuOpen ? "max-w-48 mr-1 opacity-100" : "pointer-events-none max-w-0 opacity-0"}`}>
-                    {content && contentIsMarkdown && (
-                      <button
-                        onClick={() => { setPreviewOpen(true); setMenuOpen(false); }}
-                        className="mr-1 cursor-pointer whitespace-nowrap text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-                      >
-                        Preview
-                      </button>
-                    )}
-                    {content && (
-                      <button
-                        onClick={() => { handleCopy(); setMenuOpen(false); }}
-                        className="mr-1 cursor-pointer whitespace-nowrap text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-                      >
-                        Copy
-                      </button>
-                    )}
-                    {space && (
-                      <button
-                        onClick={() => { handleSync(); setMenuOpen(false); }}
-                        disabled={isSyncing}
-                        className="mr-1 flex cursor-pointer items-center gap-1 whitespace-nowrap text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {isSyncing && <Loader2 className="h-3 w-3 animate-spin" />}
-                        {isSyncing ? "Syncing…" : "Sync"}
-                      </button>
-                    )}
+            <motion.div variants={staggerContainer} initial="hidden" animate="visible">
+              <div className="mb-10 flex items-center justify-between">
+                <div>
+                  <motion.div variants={fadeUp} transition={baseTransition}>
+                    <Skeleton className="mb-1.5 h-3 w-20" />
+                  </motion.div>
+                  <motion.div variants={fadeUp} transition={baseTransition}>
+                    <Skeleton className="h-9 w-40" />
+                  </motion.div>
+                </div>
+                <motion.div variants={fadeUp} transition={baseTransition}>
+                  <Skeleton className="h-14 w-40 rounded-lg" />
+                </motion.div>
+              </div>
+              <div className="mb-10 grid gap-5 md:grid-cols-[1fr_320px]">
+                <motion.div variants={fadeUp} transition={baseTransition} className="rounded-lg bg-surface-container-low p-6 ring-1 ring-ghost-border">
+                  <div className="mb-4 flex items-center gap-2">
+                    <Skeleton className="h-3.5 w-3.5 rounded" />
+                    <Skeleton className="h-4 w-20" />
                   </div>
-                  <button
-                    onClick={() => setMenuOpen((v) => !v)}
-                    className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-container-high hover:text-foreground"
+                  <div className="space-y-2.5">
+                    <Skeleton className="h-3 w-full" />
+                    <Skeleton className="h-3 w-4/5" />
+                    <Skeleton className="h-3 w-3/5" />
+                  </div>
+                  <div className="mt-32 flex justify-end">
+                    <Skeleton className="h-11 w-40 rounded-sm" />
+                  </div>
+                </motion.div>
+                <motion.div variants={fadeUp} transition={baseTransition}>
+                  <Skeleton className="h-full min-h-50 rounded-lg" />
+                </motion.div>
+              </div>
+              <div>
+                <div className="mb-5 flex items-center justify-between">
+                  <motion.div variants={fadeUp} transition={baseTransition}>
+                    <Skeleton className="h-6 w-32" />
+                  </motion.div>
+                  <motion.div variants={fadeUp} transition={baseTransition}>
+                    <Skeleton className="h-8 w-16 rounded-md" />
+                  </motion.div>
+                </div>
+                <motion.div variants={fadeUp} transition={baseTransition} className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="flex flex-col overflow-hidden rounded-lg">
+                      <Skeleton className="aspect-square" />
+                      <div className="space-y-1.5 p-3">
+                        <Skeleton className="h-3 w-3/4" />
+                        <Skeleton className="h-2 w-1/2" />
+                      </div>
+                    </div>
+                  ))}
+                </motion.div>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : error && !isNewSpace ? (
+          <motion.div
+            key="error"
+            variants={fadeIn}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            transition={baseTransition}
+            className="py-16 text-center"
+          >
+            <p className="text-sm text-muted-foreground">Something went wrong</p>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="content"
+            variants={screenFade}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+          >
+            <motion.div variants={staggerContainer} initial="hidden" animate="visible">
+              <motion.div variants={fadeUp} transition={baseTransition} className="mb-10 flex items-start justify-between gap-4">
+                <div className="relative min-w-0 pt-2">
+                  {user && space ? (
+                    canToggleLock ? (
+                      <button
+                        onClick={handleToggleLock}
+                        disabled={toggleLock.isPending}
+                        className="flex cursor-pointer items-center text-[10px] uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <AnimatePresence mode="wait" initial={false}>
+                          <motion.span
+                            key={isLocked ? "locked" : "unlocked"}
+                            variants={iconSwap}
+                            initial="hidden"
+                            animate="visible"
+                            exit="exit"
+                            transition={{ duration: DURATION.fast, ease: EASE_OUT }}
+                            className="inline-flex"
+                          >
+                            {isLocked ? <Lock className="h-2.5 w-2.5" /> : <LockOpen className="h-2.5 w-2.5" />}
+                          </motion.span>
+                        </AnimatePresence>
+                        &nbsp;
+                        <AnimatePresence mode="wait" initial={false}>
+                          <motion.span
+                            key={isLocked ? "locked-text" : "unlocked-text"}
+                            variants={fadeIn}
+                            initial="hidden"
+                            animate="visible"
+                            exit="exit"
+                            transition={{ duration: DURATION.fast }}
+                          >
+                            {isLocked ? "Locked" : "Unlocked"}<span className="hidden sm:inline">&nbsp;Space</span>
+                          </motion.span>
+                        </AnimatePresence>
+                      </button>
+                    ) : (
+                      <p className="flex items-center text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                        {isLocked ? <Lock className="h-2.5 w-2.5" /> : <LockOpen className="h-2.5 w-2.5" />}
+                        &nbsp;
+                        {isLocked ? "Locked" : "Unlocked"}<span className="hidden sm:inline">&nbsp;Space</span>
+                      </p>
+                    )
+                  ) : (
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                      Space
+                    </p>
+                  )}
+                  <h1
+                    ref={nameRef}
+                    onClick={() => nameClipped && setNameExpanded((v) => !v)}
+                    className={`truncate font-heading text-3xl font-medium tracking-tight ${nameClipped ? "cursor-pointer" : ""}`}
                   >
-                    <EllipsisVertical className="h-3.5 w-3.5" />
-                  </button>
+                    {decodeURIComponent(name)}
+                  </h1>
+                  {nameClipped && nameExpanded && (
+                    <motion.p
+                      variants={fadeUp}
+                      initial="hidden"
+                      animate="visible"
+                      transition={{ duration: DURATION.fast, ease: EASE_OUT }}
+                      className="absolute left-0 z-10 mt-1 w-full break-all rounded-md bg-surface-container-high px-3 py-2 text-sm text-foreground shadow-md"
+                    >
+                      {decodeURIComponent(name)}
+                    </motion.p>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
-          {!canModify && !isNewSpace && contentIsMarkdown ? (
-            <div className="min-h-48 max-h-[60dvh] overflow-y-auto">
-              <Suspense fallback={<Skeleton className="h-full w-full" />}>
-                <MarkdownRenderer content={content} />
-              </Suspense>
-            </div>
-          ) : (
-            <Textarea
-              ref={textareaRef}
-              className="min-h-48 max-h-[60dvh] resize-none border-0 bg-transparent px-0 py-0 font-heading text-sm shadow-none field-sizing-content overflow-y-auto break-all placeholder:text-muted-foreground focus-visible:ring-0"
-              placeholder="Start typing here..."
-              value={content}
-              onChange={(e) => canModify && setContent(e.target.value)}
-              readOnly={!canModify}
-            />
-          )}
-          <div className="relative flex items-end justify-end gap-2">
-            {(!user && isNewSpace) ? (
-              <p className="mr-auto flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                <Info className="h-3 w-3 shrink-0" />
-                Space will be read-only<span className="hidden sm:inline">&nbsp;after saving</span>
-              </p>
-            ) : (
-              <DetectedLinks content={content} />
-            )}
-            <div className="relative shrink-0">
-              {!canModify && !isNewSpace && (
-                <div className="absolute -inset-px z-10 flex items-center justify-center gap-1.5 rounded-sm bg-surface-container-low/90">
-                  <Lock className="h-3 w-3 text-muted-foreground" />
-                  <p className="text-[10px] font-medium text-muted-foreground">
-                    {!user ? "Log in to edit" : "Locked"}
-                  </p>
+                <div className="flex shrink-0 items-stretch overflow-hidden rounded-lg bg-surface-container-low">
+                  <DeletionCountdown
+                    countdown={countdown}
+                    isSaved={Boolean(space)}
+                    duration={duration}
+                    onDurationChange={canModify ? setDuration : undefined}
+                    isAdmin={userIsAdmin}
+                    isAnon={isAnon}
+                  />
                 </div>
-              )}
-              <button
-                onClick={handleSaveClick}
-                disabled={!canModify || !canSave || !hasChanges || isSaving}
-                className="flex h-10 cursor-pointer items-center justify-center rounded-sm bg-linear-to-br from-primary to-primary-container px-4 text-primary-foreground shadow-md hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <span className="whitespace-nowrap text-xs font-medium uppercase tracking-widest">
-                  {isSaving
-                    ? activeUploadProgress.total > 0
-                      ? `uploading ${activeUploadProgress.completed}/${activeUploadProgress.total}...`
-                      : "saving..."
-                    : isNewSpace
-                      ? <>{`Save`}<span className="hidden sm:inline">&nbsp;Space</span>{` \u2192`}</>
-                      : <>{`Update`}<span className="hidden sm:inline">&nbsp;Space</span>{` \u2192`}</>}
-                </span>
-              </button>
-            </div>
-          </div>
-        </div>
+              </motion.div>
 
-        <div className="relative flex min-w-0 flex-col">
-          {!canModify && !isNewSpace && (
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 rounded-lg bg-surface-container-low/80 backdrop-blur-[2px]">
-              <Lock className="h-5 w-5 text-muted-foreground" />
-              <p className="text-xs font-medium text-muted-foreground">
-                {!user ? "Log in to upload files" : "Uploads locked by owner"}
-              </p>
-            </div>
-          )}
-          <FileUpload
-            onFilesSelected={handleFilesSelected}
-            maxFiles={fileSlotsFull ? 0 : MAX_FILES_PER_SPACE - totalFileCount}
-            pendingFiles={pendingFiles}
-            onRemovePending={handleRemovePending}
-            uploading={isSaving && pendingFiles.length > 0}
-            full={fileSlotsFull}
-            progress={activeUploadProgress}
-            disabled={!canModify && !isNewSpace}
-          />
-        </div>
-      </div>
+              <motion.div variants={fadeUp} transition={baseTransition} className="mb-10 grid gap-5 md:grid-cols-[1fr_320px]">
+                <div
+                  className="relative flex min-w-0 flex-col gap-2 overflow-hidden rounded-lg bg-surface-container-low p-6 ring-1 ring-ghost-border transition-shadow focus-within:ring-primary/30"
+                  onClick={(e) => {
+                    if (canModify && !(e.target as HTMLElement).closest("button")) {
+                      textareaRef.current?.focus();
+                    }
+                  }}
+                >
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <NotebookPen className="h-3.5 w-3.5 text-muted-foreground" />
+                      <p className="font-heading text-sm font-medium"><span className="hidden sm:inline">Add </span>Note</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <AnimatePresence>
+                        {statusText && !menuOpen && (
+                          <motion.span
+                            variants={fadeIn}
+                            initial="hidden"
+                            animate="visible"
+                            exit="exit"
+                            transition={{ duration: DURATION.fast }}
+                            className="text-[10px] uppercase tracking-wider text-muted-foreground"
+                          >
+                            {statusText}
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                      {space && (
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(window.location.href);
+                            toast.success("Link copied to clipboard");
+                            setShareCopied(true);
+                            clearTimeout(shareTimeout.current);
+                            shareTimeout.current = setTimeout(() => setShareCopied(false), 2000);
+                          }}
+                          className={`relative flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-surface-container-high hover:text-foreground ${menuOpen ? "pointer-events-none hidden" : ""}`}
+                        >
+                          <Link className={`h-3.5 w-3.5 transition-all duration-200 ${shareCopied ? "scale-0 opacity-0" : "scale-100 opacity-100"}`} />
+                          <Check className={`absolute h-3.5 w-3.5 text-primary transition-all duration-200 ${shareCopied ? "scale-100 opacity-100" : "scale-0 opacity-0"}`} />
+                        </button>
+                      )}
+                      <div className="flex items-center">
+                        {(content || space) && (
+                          <div className={`flex items-center gap-3 overflow-hidden transition-all duration-200 ease-out ${menuOpen ? "max-w-48 mr-1 opacity-100" : "pointer-events-none max-w-0 opacity-0"}`}>
+                            {content && contentIsMarkdown && (
+                              <button
+                                onClick={() => { setPreviewOpen(true); setMenuOpen(false); }}
+                                className="mr-1 cursor-pointer whitespace-nowrap text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                              >
+                                Preview
+                              </button>
+                            )}
+                            {content && (
+                              <button
+                                onClick={() => { handleCopy(); setMenuOpen(false); }}
+                                className="mr-1 cursor-pointer whitespace-nowrap text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                              >
+                                Copy
+                              </button>
+                            )}
+                            {space && (
+                              <button
+                                onClick={() => { handleSync(); setMenuOpen(false); }}
+                                disabled={isSyncing}
+                                className="mr-1 flex cursor-pointer items-center gap-1 whitespace-nowrap text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {isSyncing && <Loader2 className="h-3 w-3 animate-spin" />}
+                                {isSyncing ? "Syncing…" : "Sync"}
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        <button
+                          onClick={() => setMenuOpen((v) => !v)}
+                          disabled={!content && !space}
+                          className={`flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-container-high hover:text-foreground ${!content && !space ? "invisible" : ""}`}
+                        >
+                          <EllipsisVertical className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <AnimatePresence mode="wait" initial={false}>
+                    {!canModify && !isNewSpace && contentIsMarkdown ? (
+                      <motion.div
+                        key="markdown-view"
+                        variants={switchVariants}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
+                        transition={{ duration: DURATION.base, ease: EASE_OUT }}
+                        className="min-h-48 max-h-[60dvh] overflow-y-auto"
+                      >
+                        <Suspense fallback={<Skeleton className="h-full w-full" />}>
+                          <MarkdownRenderer content={content} />
+                        </Suspense>
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="textarea-view"
+                        variants={switchVariants}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
+                        transition={{ duration: DURATION.base, ease: EASE_OUT }}
+                      >
+                        <Textarea
+                          ref={textareaRef}
+                          className="min-h-48 max-h-[60dvh] resize-none border-0 bg-transparent px-0 py-0 font-heading text-sm shadow-none field-sizing-content overflow-y-auto break-all placeholder:text-muted-foreground focus-visible:ring-0"
+                          placeholder="Start typing here..."
+                          value={content}
+                          onChange={(e) => canModify && setContent(e.target.value)}
+                          readOnly={!canModify}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                  <div className="relative flex items-end justify-end gap-2">
+                    {(!user && isNewSpace) ? (
+                      <p className="mr-auto flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                        <Info className="h-3 w-3 shrink-0" />
+                        Space will be read-only<span className="hidden sm:inline">&nbsp;after saving</span>
+                      </p>
+                    ) : (
+                      <DetectedLinks content={content} />
+                    )}
+                    <div className="relative shrink-0">
+                      {!canModify && !isNewSpace && (
+                        <motion.div
+                          variants={fadeIn}
+                          initial="hidden"
+                          animate="visible"
+                          transition={{ duration: DURATION.base }}
+                          className="absolute -inset-px z-10 flex items-center justify-center gap-1.5 rounded-sm bg-surface-container-low/90"
+                        >
+                          <Lock className="h-3 w-3 text-muted-foreground" />
+                          <p className="text-[10px] font-medium text-muted-foreground">
+                            {!user ? "Log in to edit" : "Locked"}
+                          </p>
+                        </motion.div>
+                      )}
+                      <button
+                        onClick={handleSaveClick}
+                        disabled={!canModify || !canSave || !hasChanges || isSaving}
+                        className="flex h-10 cursor-pointer items-center justify-center rounded-sm bg-linear-to-br from-primary to-primary-container px-4 text-primary-foreground shadow-md hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <AnimatePresence mode="wait" initial={false}>
+                          <motion.span
+                            key={isSaving ? (activeUploadProgress.total > 0 ? "uploading" : "saving") : isNewSpace ? "save" : "update"}
+                            variants={switchVariants}
+                            initial="hidden"
+                            animate="visible"
+                            exit="exit"
+                            transition={{ duration: DURATION.fast, ease: EASE_OUT }}
+                            className="whitespace-nowrap text-xs font-medium uppercase tracking-widest"
+                          >
+                            {isSaving
+                              ? activeUploadProgress.total > 0
+                                ? `uploading ${activeUploadProgress.completed}/${activeUploadProgress.total}...`
+                                : "saving..."
+                              : isNewSpace
+                                ? <>{`Save`}<span className="hidden sm:inline">&nbsp;Space</span>{` \u2192`}</>
+                                : <>{`Update`}<span className="hidden sm:inline">&nbsp;Space</span>{` \u2192`}</>}
+                          </motion.span>
+                        </AnimatePresence>
+                      </button>
+                    </div>
+                  </div>
+                </div>
 
-      {
-        <div>
-          <div className="mb-5 flex items-center justify-between">
-            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Stored Items</p>
-            <div className="flex items-center rounded-md bg-surface-container-high p-0.5">
-              <button
-                onClick={() => setFileViewMode("grid")}
-                className={`flex h-7 w-7 cursor-pointer items-center justify-center rounded-sm transition-all ${fileViewMode === "grid"
-                  ? "bg-surface-container text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-                  }`}
-              >
-                <LayoutGrid className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={() => setFileViewMode("list")}
-                className={`flex h-7 w-7 cursor-pointer items-center justify-center rounded-sm transition-all ${fileViewMode === "list"
-                  ? "bg-surface-container text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-                  }`}
-              >
-                <List className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-          <FileList
-            spaceName={space?.name ?? name}
-            canDelete={canModify && !isNewSpace}
-            pendingFiles={isSaving ? pendingFiles : []}
-            onRemovePending={handleRemovePending}
-            viewMode={fileViewMode}
-            uploading={isSaving}
-          />
-        </div>
-      }
+                <div className="relative flex min-w-0 flex-col">
+                  <AnimatePresence>
+                    {!canModify && !isNewSpace && (
+                      <motion.div
+                        variants={fadeIn}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
+                        transition={{ duration: DURATION.base }}
+                        className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 rounded-lg bg-surface-container-low/80 backdrop-blur-[2px]"
+                      >
+                        <Lock className="h-5 w-5 text-muted-foreground" />
+                        <p className="text-xs font-medium text-muted-foreground">
+                          {!user ? "Log in to upload files" : "Uploads locked by owner"}
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                  <FileUpload
+                    onFilesSelected={handleFilesSelected}
+                    maxFiles={fileSlotsFull ? 0 : MAX_FILES_PER_SPACE - totalFileCount}
+                    pendingFiles={pendingFiles}
+                    onRemovePending={handleRemovePending}
+                    uploading={isSaving && pendingFiles.length > 0}
+                    full={fileSlotsFull}
+                    progress={activeUploadProgress}
+                    disabled={!canModify && !isNewSpace}
+                  />
+                </div>
+              </motion.div>
+
+              <motion.div variants={fadeUp} transition={baseTransition}>
+                <div className="mb-5 flex items-center justify-between">
+                  <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Stored Items</p>
+                  <div className="flex items-center rounded-md bg-surface-container-high p-0.5">
+                    <button
+                      onClick={() => setFileViewMode("grid")}
+                      className={`flex h-7 w-7 cursor-pointer items-center justify-center rounded-sm transition-all ${fileViewMode === "grid"
+                        ? "bg-surface-container text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                        }`}
+                    >
+                      <LayoutGrid className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setFileViewMode("list")}
+                      className={`flex h-7 w-7 cursor-pointer items-center justify-center rounded-sm transition-all ${fileViewMode === "list"
+                        ? "bg-surface-container text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                        }`}
+                    >
+                      <List className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+                <FileList
+                  spaceName={space?.name ?? name}
+                  canDelete={canModify && !isNewSpace}
+                  pendingFiles={isSaving ? pendingFiles : []}
+                  onRemovePending={handleRemovePending}
+                  viewMode={fileViewMode}
+                  uploading={isSaving}
+                  spaceExists={Boolean(space)}
+                />
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent showCloseButton={false} className="sm:max-w-3xl max-h-[85dvh] flex flex-col">
@@ -724,20 +852,27 @@ export default function SpacePage() {
           </div>
           <div id="md-preview-print" className="flex-1 overflow-y-auto pr-2">
             {previewOpen && (
-              <Suspense fallback={
-                <div className="space-y-3 py-2">
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-3 w-full" />
-                  <Skeleton className="h-3 w-5/6" />
-                  <Skeleton className="h-3 w-full" />
-                  <Skeleton className="h-3 w-2/3" />
-                  <Skeleton className="h-8 w-full mt-4" />
-                  <Skeleton className="h-3 w-4/5" />
-                  <Skeleton className="h-3 w-full" />
-                </div>
-              }>
-                <MarkdownRenderer content={content} />
-              </Suspense>
+              <motion.div
+                variants={fadeIn}
+                initial="hidden"
+                animate="visible"
+                transition={{ duration: DURATION.base, delay: 0.05 }}
+              >
+                <Suspense fallback={
+                  <div className="space-y-3 py-2">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-full" />
+                    <Skeleton className="h-3 w-5/6" />
+                    <Skeleton className="h-3 w-full" />
+                    <Skeleton className="h-3 w-2/3" />
+                    <Skeleton className="h-8 w-full mt-4" />
+                    <Skeleton className="h-3 w-4/5" />
+                    <Skeleton className="h-3 w-full" />
+                  </div>
+                }>
+                  <MarkdownRenderer content={content} />
+                </Suspense>
+              </motion.div>
             )}
           </div>
         </DialogContent>
