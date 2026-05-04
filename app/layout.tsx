@@ -84,9 +84,15 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn("dark", inter.variable, spaceGrotesk.variable, jetbrainsMono.variable)}
+      suppressHydrationWarning
+      className={cn(inter.variable, spaceGrotesk.variable, jetbrainsMono.variable)}
     >
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t='dark';var raw=localStorage.getItem('kliboard-theme');var pref=raw?JSON.parse(raw).state.theme:'system';if(pref==='light'){t='light';}else if(pref==='dark'){t='dark';}else{t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}if(t==='dark'){document.documentElement.classList.add('dark');}}catch(e){if(window.matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.classList.add('dark');}}})();`,
+          }}
+        />
         <style
           dangerouslySetInnerHTML={{
             __html: `
