@@ -12,6 +12,7 @@ interface Space {
   owner_id: string | null;
   created_at: string;
   updated_at: string;
+  is_admin?: boolean;
 }
 
 async function fetchSpace(name: string): Promise<Space> {

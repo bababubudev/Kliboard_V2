@@ -67,6 +67,8 @@ interface FileListProps {
   viewMode: "grid" | "list";
   uploading?: boolean;
   spaceExists?: boolean;
+  willEmptySpace?: boolean;
+  onLastItemDeleted?: () => Promise<void> | void;
 }
 
 const IMAGE_TYPES = [
@@ -192,6 +194,7 @@ function FadeInImage({
 function FileActionsMenu({
   file,
   canDelete,
+  willEmptySpace = false,
   onOpen,
   onDownload,
   onShare,
@@ -202,6 +205,7 @@ function FileActionsMenu({
 }: {
   file: FileRecord;
   canDelete: boolean;
+  willEmptySpace?: boolean;
   onOpen: (file: FileRecord) => void;
   onDownload: (file: FileRecord) => void;
   onShare: (file: FileRecord) => void;
@@ -263,9 +267,11 @@ function FileActionsMenu({
       <AlertDialog open={confirmDelete} onOpenChange={(open) => !isDeleting && setConfirmDelete(open)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete file</AlertDialogTitle>
+            <AlertDialogTitle>{willEmptySpace ? "Delete file and space" : "Delete file"}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &ldquo;{file.filename}&rdquo;? This action cannot be undone.
+              {willEmptySpace
+                ? <>Deleting &ldquo;{file.filename}&rdquo; will leave the space empty, so the space will be deleted too. This action cannot be undone.</>
+                : <>Are you sure you want to delete &ldquo;{file.filename}&rdquo;? This action cannot be undone.</>}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -276,7 +282,7 @@ function FileActionsMenu({
               className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-destructive px-4 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
             >
               {isDeleting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              {isDeleting ? "Deleting..." : "Delete"}
+              {isDeleting ? "Deleting..." : willEmptySpace ? "Delete space" : "Delete"}
             </button>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -297,6 +303,8 @@ export function FileList({
   viewMode,
   uploading,
   spaceExists,
+  willEmptySpace = false,
+  onLastItemDeleted,
 }: FileListProps) {
   const { deleteFile } = useSpaceFiles(spaceName);
   const queryClient = useQueryClient();
@@ -378,10 +386,15 @@ export function FileList({
 
   async function handleDeleteRemote(file: FileRecord) {
     setDeletingId(file.id);
+    const wasLast = willEmptySpace;
     try {
       await deleteFile.mutateAsync(file.id);
-      toast.success(`${file.filename} deleted`);
-      await queryClient.invalidateQueries({ queryKey: ["files", spaceName] });
+      if (wasLast && onLastItemDeleted) {
+        await onLastItemDeleted();
+      } else {
+        toast.success(`${file.filename} deleted`);
+        await queryClient.invalidateQueries({ queryKey: ["files", spaceName] });
+      }
       setDeletingId(null);
     } catch (err) {
       const message =
@@ -539,7 +552,7 @@ export function FileList({
                     </p>
                   </div>
                   <div className={`transition-opacity ${isDeleting ? "pointer-events-none opacity-0" : "opacity-100 md:opacity-0 md:group-hover:opacity-100"}`}>
-                    <FileActionsMenu file={file} canDelete={canDelete} onOpen={handleOpenRemote} onDownload={handleDownload} onShare={handleShare} onDelete={handleDeleteRemote} isDeleting={deletingId === file.id} isDownloading={downloadingId === file.id} isCopied={copiedId === file.id} />
+                    <FileActionsMenu file={file} canDelete={canDelete} willEmptySpace={willEmptySpace} onOpen={handleOpenRemote} onDownload={handleDownload} onShare={handleShare} onDelete={handleDeleteRemote} isDeleting={deletingId === file.id} isDownloading={downloadingId === file.id} isCopied={copiedId === file.id} />
                   </div>
                 </motion.div>
               );
@@ -687,7 +700,7 @@ export function FileList({
                       })}
                     </p>
                     <div className="absolute top-2 right-2" onClick={(e) => e.stopPropagation()}>
-                      <FileActionsMenu file={file} canDelete={canDelete} onOpen={handleOpenRemote} onDownload={handleDownload} onShare={handleShare} onDelete={handleDeleteRemote} isDeleting={deletingId === file.id} isDownloading={downloadingId === file.id} isCopied={copiedId === file.id} />
+                      <FileActionsMenu file={file} canDelete={canDelete} willEmptySpace={willEmptySpace} onOpen={handleOpenRemote} onDownload={handleDownload} onShare={handleShare} onDelete={handleDeleteRemote} isDeleting={deletingId === file.id} isDownloading={downloadingId === file.id} isCopied={copiedId === file.id} />
                     </div>
                   </div>
                 </motion.div>

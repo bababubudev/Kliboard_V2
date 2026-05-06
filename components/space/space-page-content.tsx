@@ -30,8 +30,9 @@ function useCountdown(expiresAt?: string) {
   }, [expiresAt]);
   return text;
 }
+import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSpace, useCreateSpace, useUpdateSpace, useToggleLock } from "@/hooks/use-space";
+import { useSpace, useCreateSpace, useUpdateSpace, useToggleLock, useDeleteSpace } from "@/hooks/use-space";
 import { useBatchFileUpload, uploadFilesToStorage } from "@/hooks/use-file-upload";
 import { friendlyUploadError } from "@/lib/upload-errors";
 import { createClient } from "@/lib/supabase/client";
@@ -48,6 +49,15 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { DeletionCountdown } from "@/components/space/deletion-countdown";
 import { DetectedLinks } from "@/components/space/detected-links";
 import { MAX_FILES_PER_SPACE } from "@/lib/constants";
@@ -101,6 +111,7 @@ interface SpacePageContentProps {
 }
 
 export function SpacePageContent({ name, isAdmin: isAdminMode }: SpacePageContentProps) {
+  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const isAnon = !authLoading && !user;
   const {
@@ -129,6 +140,7 @@ export function SpacePageContent({ name, isAdmin: isAdminMode }: SpacePageConten
   const [previewOpen, setPreviewOpen] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const shareTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [confirmEmptyDelete, setConfirmEmptyDelete] = useState(false);
 
   useEffect(() => {
     const el = nameRef.current;
@@ -151,6 +163,7 @@ export function SpacePageContent({ name, isAdmin: isAdminMode }: SpacePageConten
   const createSpace = useCreateSpace();
   const updateSpace = useUpdateSpace(name);
   const toggleLock = useToggleLock(name);
+  const deleteSpace = useDeleteSpace();
   const batchUpload = useBatchFileUpload();
   const { data: remoteFiles } = useQuery({
     queryKey: ["files", space?.name ?? name],
@@ -177,6 +190,7 @@ export function SpacePageContent({ name, isAdmin: isAdminMode }: SpacePageConten
   const isLocked = space?.is_locked ?? true;
   const canModify = isNewSpace || isOwner || (Boolean(user) && !isLocked) || Boolean(isAdminMode);
   const canToggleLock = isOwner || Boolean(isAdminMode);
+  const canDeleteSpace = isOwner || Boolean(isAdminMode) || Boolean(space?.is_admin);
 
   const hasPendingFiles = Boolean(pendingFiles.length);
   const hasContent = Boolean(content.trim());
@@ -503,6 +517,42 @@ export function SpacePageContent({ name, isAdmin: isAdminMode }: SpacePageConten
   const totalFileCount = existingFileCount + pendingFiles.length;
   const fileSlotsFull = totalFileCount >= MAX_FILES_PER_SPACE;
 
+  const willEmptyOnFileDelete = Boolean(
+    space &&
+    canDeleteSpace &&
+    canModify &&
+    !isNewSpace &&
+    existingFileCount === 1 &&
+    pendingFiles.length === 0 &&
+    !hasContent &&
+    !space.content.trim()
+  );
+
+  const wouldDeleteOnSave = Boolean(
+    space &&
+    canDeleteSpace &&
+    canModify &&
+    !isNewSpace &&
+    !hasContent &&
+    !hasPendingFiles &&
+    existingFileCount === 0
+  );
+
+  async function handleDeleteEmptySpace() {
+    if (!space) return;
+    try {
+      await deleteSpace.mutateAsync(space.name);
+      queryClient.removeQueries({ queryKey: ["space", name] });
+      queryClient.removeQueries({ queryKey: ["files", space.name] });
+      toast.success("Space deleted");
+      setConfirmEmptyDelete(false);
+      router.push("/");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to delete space";
+      toast.error(msg);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-6xl px-6 py-8">
       <AnimatePresence mode="wait">
@@ -814,31 +864,43 @@ export function SpacePageContent({ name, isAdmin: isAdminMode }: SpacePageConten
                           </p>
                         </motion.div>
                       )}
-                      <button
-                        onClick={handleSaveClick}
-                        disabled={!canModify || !canSave || !hasChanges || isSaving}
-                        className="flex h-10 cursor-pointer items-center justify-center rounded-sm bg-linear-to-br from-primary to-primary-container px-4 text-primary-foreground shadow-md hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        <AnimatePresence mode="wait" initial={false}>
-                          <motion.span
-                            key={isSaving ? (activeUploadProgress.total > 0 ? "uploading" : "saving") : isNewSpace ? "save" : "update"}
-                            variants={switchVariants}
-                            initial="hidden"
-                            animate="visible"
-                            exit="exit"
-                            transition={{ duration: DURATION.fast, ease: EASE_OUT }}
-                            className="whitespace-nowrap text-xs font-medium uppercase tracking-widest"
-                          >
-                            {isSaving
-                              ? activeUploadProgress.total > 0
-                                ? `uploading ${activeUploadProgress.completed}/${activeUploadProgress.total}...`
-                                : "saving..."
-                              : isNewSpace
-                                ? <>{`Save`}<span className="hidden sm:inline">&nbsp;Space</span>{` \u2192`}</>
-                                : <>{`Update`}<span className="hidden sm:inline">&nbsp;Space</span>{` \u2192`}</>}
-                          </motion.span>
-                        </AnimatePresence>
-                      </button>
+                      {wouldDeleteOnSave ? (
+                        <button
+                          onClick={() => setConfirmEmptyDelete(true)}
+                          disabled={isSaving || deleteSpace.isPending}
+                          className="flex h-10 cursor-pointer items-center justify-center rounded-sm bg-destructive px-4 text-destructive-foreground shadow-md hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <span className="whitespace-nowrap text-xs font-medium uppercase tracking-widest">
+                            Delete<span className="hidden sm:inline">&nbsp;Space</span>
+                          </span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={handleSaveClick}
+                          disabled={!canModify || !canSave || !hasChanges || isSaving}
+                          className="flex h-10 cursor-pointer items-center justify-center rounded-sm bg-linear-to-br from-primary to-primary-container px-4 text-primary-foreground shadow-md hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <AnimatePresence mode="wait" initial={false}>
+                            <motion.span
+                              key={isSaving ? (activeUploadProgress.total > 0 ? "uploading" : "saving") : isNewSpace ? "save" : "update"}
+                              variants={switchVariants}
+                              initial="hidden"
+                              animate="visible"
+                              exit="exit"
+                              transition={{ duration: DURATION.fast, ease: EASE_OUT }}
+                              className="whitespace-nowrap text-xs font-medium uppercase tracking-widest"
+                            >
+                              {isSaving
+                                ? activeUploadProgress.total > 0
+                                  ? `uploading ${activeUploadProgress.completed}/${activeUploadProgress.total}...`
+                                  : "saving..."
+                                : isNewSpace
+                                  ? <>{`Save`}<span className="hidden sm:inline">&nbsp;Space</span>{` \u2192`}</>
+                                  : <>{`Update`}<span className="hidden sm:inline">&nbsp;Space</span>{` \u2192`}</>}
+                            </motion.span>
+                          </AnimatePresence>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -906,6 +968,8 @@ export function SpacePageContent({ name, isAdmin: isAdminMode }: SpacePageConten
                   viewMode={fileViewMode}
                   uploading={isSaving}
                   spaceExists={Boolean(space)}
+                  willEmptySpace={willEmptyOnFileDelete}
+                  onLastItemDeleted={handleDeleteEmptySpace}
                 />
               </motion.div>
             </motion.div>
@@ -966,6 +1030,31 @@ export function SpacePageContent({ name, isAdmin: isAdminMode }: SpacePageConten
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={confirmEmptyDelete}
+        onOpenChange={(open) => !deleteSpace.isPending && setConfirmEmptyDelete(open)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete space</AlertDialogTitle>
+            <AlertDialogDescription>
+              This space has no notes or files. Saving will delete it. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteSpace.isPending}>Cancel</AlertDialogCancel>
+            <button
+              onClick={handleDeleteEmptySpace}
+              disabled={deleteSpace.isPending}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-destructive px-4 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+            >
+              {deleteSpace.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {deleteSpace.isPending ? "Deleting..." : "Delete space"}
+            </button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
