@@ -19,7 +19,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://kliboard-v2.vercel.app"
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://kliboard.online"
   ),
   title: {
     default: "Kliboard — Temporary Text Clipboard, Auto-Expiring Notes",
