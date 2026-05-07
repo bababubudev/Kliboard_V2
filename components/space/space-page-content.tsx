@@ -144,6 +144,22 @@ export function SpacePageContent({ name, isAdmin: isAdminMode }: SpacePageConten
   const [shareCopied, setShareCopied] = useState(false);
   const shareTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [confirmEmptyDelete, setConfirmEmptyDelete] = useState(false);
+  const [markdownChunkReady, setMarkdownChunkReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    import("@/components/space/markdown-renderer")
+      .then(() => {
+        if (!cancelled) setMarkdownChunkReady(true);
+      })
+      .catch((err) => {
+        console.error("Failed to preload markdown renderer", err);
+        if (!cancelled) setMarkdownChunkReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const el = nameRef.current;
@@ -310,6 +326,8 @@ export function SpacePageContent({ name, isAdmin: isAdminMode }: SpacePageConten
   }
 
   const contentIsMarkdown = hasMarkdown(content);
+  const willRenderMarkdown = !canModify && !isNewSpace && contentIsMarkdown;
+  const showSkeleton = isLoading || (willRenderMarkdown && !markdownChunkReady);
 
   function handleSaveClick() {
     if (!canSave || !hasChanges) return;
@@ -570,7 +588,7 @@ export function SpacePageContent({ name, isAdmin: isAdminMode }: SpacePageConten
   return (
     <div className="mx-auto max-w-6xl px-6 py-8">
       <AnimatePresence mode="wait">
-        {isLoading ? (
+        {showSkeleton ? (
           <motion.div
             key="skeleton"
             variants={screenFade}
