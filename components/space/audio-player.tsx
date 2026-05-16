@@ -82,6 +82,7 @@ export function AudioPlayer({ src, className, variant = "default", caption }: Au
   const [duration, setDuration] = useState(0);
   const [scrubbing, setScrubbing] = useState(false);
   const [peaks, setPeaks] = useState<number[] | null>(null);
+  const probingDurationRef = useRef(false);
 
   function applyProgress(pct: number) {
     const clamped = Math.max(0, Math.min(100, pct));
@@ -170,20 +171,56 @@ export function AudioPlayer({ src, className, variant = "default", caption }: Au
     return () => cancelAnimationFrame(raf);
   }, [playing, scrubbing, duration]);
 
+  function handleDurationMeta(audio: HTMLAudioElement) {
+    const d = audio.duration;
+    if (Number.isFinite(d) && d > 0) {
+      setDuration(d);
+      return;
+    }
+    if (probingDurationRef.current) return;
+    probingDurationRef.current = true;
+    const onProbeTimeUpdate = () => {
+      const real = audio.duration;
+      if (Number.isFinite(real) && real > 0) {
+        audio.removeEventListener("timeupdate", onProbeTimeUpdate);
+        audio.removeEventListener("durationchange", onProbeDurationChange);
+        audio.currentTime = 0;
+        setDuration(real);
+        setCurrent(0);
+        probingDurationRef.current = false;
+      }
+    };
+    const onProbeDurationChange = () => {
+      const real = audio.duration;
+      if (Number.isFinite(real) && real > 0) {
+        audio.removeEventListener("timeupdate", onProbeTimeUpdate);
+        audio.removeEventListener("durationchange", onProbeDurationChange);
+        audio.currentTime = 0;
+        setDuration(real);
+        setCurrent(0);
+        probingDurationRef.current = false;
+      }
+    };
+    audio.addEventListener("timeupdate", onProbeTimeUpdate);
+    audio.addEventListener("durationchange", onProbeDurationChange);
+    try {
+      audio.currentTime = 1e101;
+    } catch (err) {
+      console.warn("Duration probe seek failed", err);
+      probingDurationRef.current = false;
+    }
+  }
+
   const audioElement = (
     <audio
       ref={audioRef}
       src={src}
-      preload="metadata"
-      onTimeUpdate={(e) => setCurrent(e.currentTarget.currentTime)}
-      onLoadedMetadata={(e) => {
-        const d = e.currentTarget.duration;
-        if (Number.isFinite(d)) setDuration(d);
+      preload="auto"
+      onTimeUpdate={(e) => {
+        if (!probingDurationRef.current) setCurrent(e.currentTarget.currentTime);
       }}
-      onDurationChange={(e) => {
-        const d = e.currentTarget.duration;
-        if (Number.isFinite(d)) setDuration(d);
-      }}
+      onLoadedMetadata={(e) => handleDurationMeta(e.currentTarget)}
+      onDurationChange={(e) => handleDurationMeta(e.currentTarget)}
       onEnded={() => {
         setPlaying(false);
         setCurrent(0);
@@ -251,7 +288,7 @@ export function AudioPlayer({ src, className, variant = "default", caption }: Au
               {playing ? (
                 <Pause className="h-4 w-4 fill-current" />
               ) : (
-                <Play className="h-4 w-4 translate-x-[1px] fill-current" />
+                <Play className="h-4 w-4 translate-x-px fill-current" />
               )}
             </motion.span>
           </AnimatePresence>
@@ -292,7 +329,7 @@ export function AudioPlayer({ src, className, variant = "default", caption }: Au
             {playing ? (
               <Pause className="h-3 w-3 fill-current" />
             ) : (
-              <Play className="h-3 w-3 translate-x-[1px] fill-current" />
+              <Play className="h-3 w-3 translate-x-px fill-current" />
             )}
           </motion.span>
         </AnimatePresence>

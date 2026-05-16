@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Mic, Square, X } from "lucide-react";
 import { toast } from "sonner";
+import fixWebmDuration from "fix-webm-duration";
 import { AUDIO_BITRATE_BPS, MAX_RECORDING_SECONDS } from "@/lib/constants";
 import { DURATION, EASE_OUT } from "@/lib/animations";
 
@@ -74,6 +75,7 @@ export function AudioRecorder({ onRecorded, disabled, compact, fullWidth }: Audi
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cancelledRef = useRef(false);
   const mimeRef = useRef<string>("");
+  const startedAtRef = useRef<number>(0);
 
   useEffect(() => {
     const mime = pickSupportedMime();
@@ -149,15 +151,31 @@ export function AudioRecorder({ onRecorded, disabled, compact, fullWidth }: Audi
         const wasCancelled = cancelledRef.current;
         const chunks = chunksRef.current.slice();
         const actualMime = recorder.mimeType || mimeRef.current || "audio/webm";
+        const durationMs = startedAtRef.current
+          ? Math.max(1, Math.round(performance.now() - startedAtRef.current))
+          : 0;
         cleanup();
         if (wasCancelled || chunks.length === 0) return;
         const normalized = normalizeMime(actualMime);
-        const blob = new Blob(chunks, { type: normalized });
         const ext = extensionFor(normalized);
-        const file = new File([blob], `recording-${timestamp()}.${ext}`, {
-          type: normalized,
-        });
-        onRecorded(file);
+        const name = `recording-${timestamp()}.${ext}`;
+
+        const rawBlob = new Blob(chunks, { type: normalized });
+        const finalize = (blob: Blob) => {
+          const file = new File([blob], name, { type: normalized });
+          onRecorded(file);
+        };
+
+        if (normalized.startsWith("audio/webm") && durationMs > 0) {
+          fixWebmDuration(rawBlob, durationMs, { logger: false })
+            .then((fixed) => finalize(fixed))
+            .catch((err) => {
+              console.warn("fixWebmDuration failed, using raw blob", err);
+              finalize(rawBlob);
+            });
+        } else {
+          finalize(rawBlob);
+        }
       });
 
       recorder.addEventListener("error", (e) => {
@@ -167,6 +185,7 @@ export function AudioRecorder({ onRecorded, disabled, compact, fullWidth }: Audi
         stop(true);
       });
 
+      startedAtRef.current = performance.now();
       recorder.start();
       setRecording(true);
       setElapsed(0);
