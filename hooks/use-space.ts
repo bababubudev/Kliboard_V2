@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { addAnonClaim } from "@/lib/anon-claims";
 
 interface Space {
   id: string;
@@ -65,9 +66,12 @@ export function useCreateSpace() {
         err.status = res.status;
         throw err;
       }
-      return res.json();
+      return res.json() as Promise<Space & { claim_token?: string }>;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      if (data.claim_token && data.name) {
+        addAnonClaim(data.name, data.claim_token);
+      }
       queryClient.invalidateQueries({ queryKey: ["recent-spaces"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-spaces"] });
     },

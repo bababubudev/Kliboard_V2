@@ -31,8 +31,10 @@ function useCountdown(expiresAt?: string) {
   return text;
 }
 import { useRouter } from "next/navigation";
+import NextLink from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSpace, useCreateSpace, useUpdateSpace, useToggleLock, useDeleteSpace } from "@/hooks/use-space";
+import { getClaimForSpace, removeAnonClaim } from "@/lib/anon-claims";
 import { useBatchFileUpload, uploadFilesToStorage } from "@/hooks/use-file-upload";
 import { friendlyUploadError } from "@/lib/upload-errors";
 import { createClient } from "@/lib/supabase/client";
@@ -220,6 +222,52 @@ export function SpacePageContent({ name, isAdmin: isAdminMode }: SpacePageConten
   const isOwner = Boolean(user && space?.owner_id === user.id);
   const isLocked = space?.is_locked ?? true;
   const canModify = isNewSpace || isOwner || (Boolean(user) && !isLocked) || Boolean(isAdminMode);
+
+  const [pendingClaimToken, setPendingClaimToken] = useState<string | null>(null);
+  const [isClaiming, setIsClaiming] = useState(false);
+
+  useEffect(() => {
+    const claim = getClaimForSpace(name);
+    setPendingClaimToken(claim?.token ?? null);
+  }, [name, space?.owner_id, user?.id]);
+
+  const canClaim = Boolean(
+    pendingClaimToken && user && space && !space.owner_id && !isOwner
+  );
+  const showClaimLoginCTA = Boolean(pendingClaimToken && !user && space && !space.owner_id);
+
+  async function handleClaim() {
+    if (!pendingClaimToken || isClaiming) return;
+    setIsClaiming(true);
+    try {
+      const res = await fetch(`/api/spaces/${name}/claim`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: pendingClaimToken }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: res.statusText }));
+        if (res.status === 404 || res.status === 409 || res.status === 403) {
+          removeAnonClaim(name);
+          setPendingClaimToken(null);
+        }
+        toast.error(data.error ?? "Failed to claim space");
+        return;
+      }
+      removeAnonClaim(name);
+      setPendingClaimToken(null);
+      toast.success("Space claimed");
+      await queryClient.invalidateQueries({ queryKey: ["space", name] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-spaces"] });
+      queryClient.invalidateQueries({ queryKey: ["recent-spaces"] });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to claim space";
+      toast.error(msg);
+    } finally {
+      setIsClaiming(false);
+    }
+  }
+
   const canToggleLock = isOwner || Boolean(isAdminMode);
   const canDeleteSpace = isOwner || Boolean(isAdminMode) || Boolean(space?.is_admin);
 
@@ -891,12 +939,29 @@ export function SpacePageContent({ name, isAdmin: isAdminMode }: SpacePageConten
                           initial="hidden"
                           animate="visible"
                           transition={{ duration: DURATION.base }}
-                          className="absolute -inset-px z-10 flex items-center justify-center gap-1.5 rounded-sm bg-surface-container-low/90"
+                          className="pointer-events-auto absolute -inset-px z-10 flex items-center justify-center gap-1.5 rounded-sm bg-surface-container-low/90"
                         >
                           <Lock className="h-3 w-3 text-muted-foreground" />
-                          <p className="text-[10px] font-medium text-muted-foreground">
-                            {!user ? "Log in to edit" : "Locked"}
-                          </p>
+                          {canClaim ? (
+                            <button
+                              onClick={handleClaim}
+                              disabled={isClaiming}
+                              className="cursor-pointer text-[10px] font-medium text-primary underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {isClaiming ? "Claiming..." : "Claim space"}
+                            </button>
+                          ) : showClaimLoginCTA ? (
+                            <NextLink
+                              href="/login"
+                              className="text-[10px] font-medium text-primary underline-offset-4 hover:underline"
+                            >
+                              Log in to claim
+                            </NextLink>
+                          ) : (
+                            <p className="text-[10px] font-medium text-muted-foreground">
+                              {!user ? "Log in to edit" : "Locked"}
+                            </p>
+                          )}
                         </motion.div>
                       )}
                       {wouldDeleteOnSave ? (
@@ -949,12 +1014,29 @@ export function SpacePageContent({ name, isAdmin: isAdminMode }: SpacePageConten
                         animate="visible"
                         exit="exit"
                         transition={{ duration: DURATION.base }}
-                        className="pointer-events-auto absolute inset-0 z-30 flex flex-row md:flex-col items-center justify-center gap-2 rounded-lg bg-surface-container-low/85 backdrop-blur-md"
+                        className="pointer-events-auto absolute -inset-px z-30 flex flex-row items-center justify-center gap-1.5 rounded-lg bg-surface-container-low/85 backdrop-blur-md p-4"
                       >
-                        <Lock className="h-3.5 w-3.5 md:h-5 md:w-5 text-muted-foreground" />
-                        <p className="text-xs font-medium text-muted-foreground">
-                          {!user ? "Log in to add files" : "Uploads locked by owner"}
-                        </p>
+                        <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                        {canClaim ? (
+                          <button
+                            onClick={handleClaim}
+                            disabled={isClaiming}
+                            className="cursor-pointer text-xs font-medium text-primary underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isClaiming ? "Claiming..." : "Claim space"}
+                          </button>
+                        ) : showClaimLoginCTA ? (
+                          <NextLink
+                            href="/login"
+                            className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+                          >
+                            Log in to claim
+                          </NextLink>
+                        ) : (
+                          <p className="text-xs font-medium text-muted-foreground">
+                            {!user ? "Log in to add files" : "Uploads locked by owner"}
+                          </p>
+                        )}
                       </motion.div>
                     )}
                   </AnimatePresence>

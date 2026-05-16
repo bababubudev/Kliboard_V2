@@ -33,3 +33,11 @@ export const readRateLimiter = isDev
 export const uploadRateLimiter = isDev
   ? noopLimiter
   : new Ratelimit({ redis: getRedis(), limiter: Ratelimit.slidingWindow(20, "1 h"), prefix: "rl:upload" });
+
+export const anonCreateRateLimiter = isDev
+  ? noopLimiter
+  : new Ratelimit({ redis: getRedis(), limiter: Ratelimit.slidingWindow(5, "24 h"), prefix: "rl:anon-create" });
+
+export const claimRateLimiter = isDev
+  ? noopLimiter
+  : new Ratelimit({ redis: getRedis(), limiter: Ratelimit.slidingWindow(5, "24 h"), prefix: "rl:claim" });

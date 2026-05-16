@@ -41,6 +41,6 @@ export async function PATCH(
     return NextResponse.json({ error: "Failed to update lock state" }, { status: 500 });
   }
 
-  const { password_hash: _, ...safeSpace } = data;
+  const { password_hash: _, claim_token_hash: __, ...safeSpace } = data;
   return NextResponse.json(safeSpace);
 }

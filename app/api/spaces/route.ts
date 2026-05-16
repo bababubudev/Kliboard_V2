@@ -3,7 +3,8 @@ import { headers } from "next/headers";
 import { createSpaceSchema } from "@/lib/schemas/space.schema";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { writeRateLimiter } from "@/lib/rate-limit";
+import { writeRateLimiter, anonCreateRateLimiter } from "@/lib/rate-limit";
+import { generateClaimToken, hashClaimToken } from "@/lib/claim-token";
 import { addMinutes } from "date-fns";
 import {
   GLOBAL_ANON_SPACE_CAP,
@@ -79,6 +80,17 @@ export async function POST(request: Request) {
   }
 
   if (!user) {
+    const { success: anonOk } = await anonCreateRateLimiter.limit(ip);
+    if (!anonOk) {
+      return NextResponse.json(
+        {
+          error:
+            "Anonymous users can create up to 5 spaces per day. Sign in for higher limits.",
+        },
+        { status: 429 }
+      );
+    }
+
     const admin = createAdminClient();
     const { count } = await admin
       .from("spaces")
@@ -97,6 +109,9 @@ export async function POST(request: Request) {
     }
   }
 
+  const claimToken = user ? null : generateClaimToken();
+  const claimTokenHash = claimToken ? hashClaimToken(claimToken) : null;
+
   const expiresAt = addMinutes(new Date(), duration).toISOString();
   const normalizedName = name.toLowerCase();
 
@@ -107,6 +122,7 @@ export async function POST(request: Request) {
     expires_at: expiresAt,
     is_locked: true,
     owner_id: user?.id ?? null,
+    claim_token_hash: claimTokenHash,
   };
 
   const { data, error } = await supabase
@@ -170,7 +186,11 @@ export async function POST(request: Request) {
         await insertFiles(retryData.id, files);
       }
 
-      return NextResponse.json(retryData, { status: 201 });
+      const { claim_token_hash: _retryHash, ...safeRetry } = retryData;
+      return NextResponse.json(
+        claimToken ? { ...safeRetry, claim_token: claimToken } : safeRetry,
+        { status: 201 }
+      );
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -179,5 +199,9 @@ export async function POST(request: Request) {
     await insertFiles(data.id, files);
   }
 
-  return NextResponse.json(data, { status: 201 });
+  const { claim_token_hash: _hash, ...safeData } = data;
+  return NextResponse.json(
+    claimToken ? { ...safeData, claim_token: claimToken } : safeData,
+    { status: 201 }
+  );
 }

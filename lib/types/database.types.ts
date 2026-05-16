@@ -20,6 +20,7 @@ export interface Database {
           duration: number;
           expires_at: string;
           owner_id: string | null;
+          claim_token_hash: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -33,6 +34,7 @@ export interface Database {
           duration: number;
           expires_at: string;
           owner_id?: string | null;
+          claim_token_hash?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -46,6 +48,7 @@ export interface Database {
           duration?: number;
           expires_at?: string;
           owner_id?: string | null;
+          claim_token_hash?: string | null;
           created_at?: string;
           updated_at?: string;
         };

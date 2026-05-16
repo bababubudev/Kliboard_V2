@@ -98,12 +98,12 @@ export function FileUpload({ onFilesSelected, maxFiles, pendingFiles = [], onRem
         setDragging(true);
       }}
       onDragLeave={() => setDragging(false)}
-      className={`relative flex flex-1 flex-col overflow-hidden rounded-lg bg-surface-container-low border transition-colors ${
+      className={`relative flex flex-1 flex-col overflow-hidden rounded-lg bg-surface-container-low transition-colors ${
         disabled
-          ? "border-transparent"
+          ? "border-0"
           : dragging
-            ? "border-dashed border-primary/40 bg-primary/5"
-            : "border-dashed border-ghost-border"
+            ? "border border-dashed border-primary/40 bg-primary/5"
+            : "border border-dashed border-ghost-border"
       } ${pendingFiles.length > 0 ? "p-4" : "p-3 md:items-center md:justify-center md:p-6 md:text-center"}`}
     >
       {dragging && pendingFiles.length > 0 && (

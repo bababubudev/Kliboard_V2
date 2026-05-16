@@ -58,5 +58,10 @@ export const updateSpaceSchema = z.object({
     .optional(),
 });
 
+export const claimSpaceSchema = z.object({
+  token: z.string().min(16).max(256),
+});
+
 export type CreateSpaceInput = z.infer<typeof createSpaceSchema>;
 export type UpdateSpaceInput = z.infer<typeof updateSpaceSchema>;
+export type ClaimSpaceInput = z.infer<typeof claimSpaceSchema>;

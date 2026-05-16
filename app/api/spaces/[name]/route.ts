@@ -61,7 +61,7 @@ export async function GET(
     return NextResponse.json({ error: "Space expired" }, { status: 404 });
   }
 
-  const { password_hash: _, ...safeSpace } = space;
+  const { password_hash: _, claim_token_hash: __, ...safeSpace } = space;
   return NextResponse.json({ ...safeSpace, is_admin: userIsAdmin });
 }
 
@@ -158,7 +158,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const { password_hash: _, ...safeSpace } = data;
+  const { password_hash: _, claim_token_hash: __, ...safeSpace } = data;
   return NextResponse.json(safeSpace);
 }
 
