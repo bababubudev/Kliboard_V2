@@ -53,8 +53,9 @@ export function AnonClaimRunner() {
   const [claimed, setClaimed] = useState<ClaimedSpace[]>([]);
 
   useEffect(() => {
-    if (loading || !user) {
-      lastUserId.current = user?.id ?? null;
+    if (loading) return;
+    if (!user) {
+      lastUserId.current = null;
       return;
     }
     if (lastUserId.current === user.id) return;
